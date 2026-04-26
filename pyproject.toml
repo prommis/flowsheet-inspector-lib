@@ -23,8 +23,14 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
 ]
 
+dependencies = [
+    "idaes-pse>=2.10.0",
+    "pyomo >=6.9.5",
+]
+
 [project.optional-dependencies]
 dev = [
+  "mypy>=1.10",
   "pytest>=8",
 ]
 
@@ -40,3 +46,11 @@ idaes_fi = ["py.typed"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src"]
+mypy_path = "src"
+strict = true
+warn_unused_configs = true
+show_error_codes = true

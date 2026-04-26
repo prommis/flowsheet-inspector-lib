@@ -25,3 +25,9 @@ Run tests:
 ```bash
 pytest
 ```
+
+Run static type checking:
+
+```bash
+mypy
+```
