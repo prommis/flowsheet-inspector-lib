@@ -6,4 +6,22 @@ Developed as part of the Process Optimization & Modeling for Minerals Sustainabi
 > See `COPYRIGHT.md` and `LICENSE.md` files in this repository before
 > downloading, distributing, or otherwise using material from this repository.
 
-(more information coming soon..)
+## Package layout
+
+- PyPI package name: `idaes-fi`
+- Import package: `idaes_fi`
+- Source layout: `src/idaes_fi`
+
+## Development
+
+Install in editable mode with test dependencies:
+
+```bash
+python -m pip install -e .[dev]
+```
+
+Run tests:
+
+```bash
+pytest
+```
