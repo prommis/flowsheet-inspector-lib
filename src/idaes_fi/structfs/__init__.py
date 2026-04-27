@@ -254,13 +254,33 @@ treatment in display, etc. with the
 ```
 
 '''
+__all__ = ["FlowsheetRunner", "Runner", "fi_main", "get_report_db"]
 
-from .fsrunner import FlowsheetRunner
-from .runner import Runner
-from .simple_wrap import _Wrapper
+# Lazy exports, to avoid warnings when importing fsrunner, etc.
+# using e.g. `python -m`
 
-#: Flowsheet inspector simple wrapper
-fi_main = _Wrapper.main
 
-#: Get the default ReportDB database (wrapper) for reports
-get_report_db = Runner.get_report_db
+def __getattr__(name):
+    if name == "FlowsheetRunner":
+        from .fsrunner import FlowsheetRunner
+
+        return FlowsheetRunner
+
+    if name == "Runner":
+        from .runner import Runner
+
+        return Runner
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def fi_main(*args, **kwargs):
+    from .simple_wrap import _Wrapper
+
+    return _Wrapper.main(*args, **kwargs)
+
+
+def get_report_db(*args, **kwargs):
+    from .runner import Runner
+
+    return Runner.get_report_db(*args, **kwargs)

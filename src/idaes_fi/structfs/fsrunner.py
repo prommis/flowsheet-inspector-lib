@@ -16,8 +16,13 @@ in `FlowsheetRunner`.
 """
 
 # stdlib
+import argparse
 from copy import deepcopy
 from enum import Enum
+import inspect
+import logging
+from pathlib import Path
+import sys
 from types import FunctionType
 from typing import Sequence
 
@@ -35,7 +40,9 @@ except ImportError:
 
 # package
 from .runner import Runner
-from .common import ActionNames, DEFAULT_SOLVER_NAME, RESULT_FLOWSHEET_KEY
+from .common import ActionNames, DEFAULT_SOLVER_NAME, RESULT_FLOWSHEET_KEY, load_module
+
+_log = logging.getLogger(__name__)
 
 
 class Context(dict):
@@ -444,16 +451,83 @@ class FlowsheetRunner(BaseFlowsheetRunner):
         return value
 
 
-## Utility code to find modules
+# Load and run modules (or files)
 
 
-def global_flowsheet(a_module):
-    """Find the global flowhseet object
+def run_flowsheet(
+    module_or_path: str, fs_attr: str = "", step_kw: dict[str, str] = None, **kwargs
+) -> None:
+    """Run structfs-wrapper flowsheet found in a file or module.
+
+    Args:
+        module_or_path (str): Filesystem path or Python module path
+        fs_attr: Used to select among multiple flowsheet wrappers in the same module.
+                 If not given use the first one found, otherwise require a match.
+        step_kw: Keywords sent to the `run_steps()` function, if applicable
+        kwargs: Additional keyword arguments passed to fi_main, if applicable
+
+    Raises:
+        ValueError, if no flowsheet is found, or no match to fs_attr
+    """
+    mod = load_module(module_or_path=module_or_path)
+    p = Path(mod.__file__)
+    target_kw = {
+        "module": mod.__name__,
+        "filename": p.name,
+        "filedir": str(p.parent.absolute()),
+    }
+    obj_map = global_flowsheet(mod)
+    if obj_map:
+        if fs_attr:
+            if fs_attr not in obj_map:
+                raise ValueError(
+                    f"Flowsheet object found, but specified name '{fs_attr}' "
+                    f"not found in: {list(obj_map.keys())}"
+                )
+            fs = obj_map[fs_attr]
+        else:
+            if len(obj_map) > 1:
+                _log.warning(
+                    "Multiple flowsheet objects found, but no attribute "
+                    "specified; using first."
+                )
+            fs = list(obj_map.values())[0]
+        p = Path(mod.__file__)
+        fs.set_report_target(**target_kw)
+        if step_kw is None:
+            step_kw = {}
+        fs.run_steps(**step_kw)
+    else:
+        func = wrapped_main(mod)
+        if func is None:
+            raise ValueError(
+                f"Could not find either a BaseFlowsheetRunner instance "
+                f"or a @fi_main wrapped function in: {module_or_path}"
+            )
+        # kwargs.update(target_kw)
+        # run the wrapped function, with user arguments
+        func(**kwargs)
+
+
+def global_flowsheet(a_module) -> dict[str, BaseFlowsheetRunner]:
+    """Find a global flowsheet object.
+    This is defined as the first object that is an instance of BaseFlowsheetRunner.
 
     Return:
-        The flowsheet object, or None if not found.
+        Dict mapping attribute name(s) to flowsheet object(s), or empty dict if none found
     """
-    return getattr(a_module, "FS", None)
+    obj_map = {}
+    for key in dir(a_module):
+        obj = getattr(a_module, key)
+        # for reasons I will never understand, a simple isinstance()
+        # is not reliable; anyways, duck-typing this is probably better
+        if (
+            not inspect.isclass(obj)
+            and hasattr(obj, "run_steps")
+            and hasattr(obj, "model")
+        ):
+            obj_map[key] = obj
+    return obj_map
 
 
 def wrapped_main(a_module) -> FunctionType | None:
@@ -464,22 +538,63 @@ def wrapped_main(a_module) -> FunctionType | None:
     """
     if not hasattr(a_module, "fi_main"):
         return None
-    found = None
+    all_found = []
     for k in dir(a_module):
         fn = getattr(a_module, k)
         if isinstance(fn, FunctionType):
             name = fn.__name__
             if name == "fi_wrapper":
-                found = k
-                break
-    if found:
-        return getattr(a_module, found)
+                all_found.append(k)
+    if len(all_found) > 1:
+        raise ValueError(
+            f"Multiple main() functions found in module {a_module.__name__}"
+        )
+    elif len(all_found) == 1:
+        return getattr(a_module, all_found[0])
     return None
 
 
-def run_wrapped_main(func) -> dict[str, dict]:
-    """Run a wrapped flowsheet returned by `wrapped_flowsheet()`
-    and return the report from the embedded runner object.
-    """
-    m, result = func()  # pylint: disable=W0612
-    return result[RESULT_FLOWSHEET_KEY].report()
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("name")
+    ap.add_argument("--attr", default=None)
+    ap.add_argument("--last", default=None)
+    ap.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        default=False,
+        help="Don't print extra info",
+    )
+    args = ap.parse_args()
+
+    kwargs = {}
+    if args.attr is not None:
+        kwargs["fs_attr"] = args.attr
+    if args.last is not None:
+        kwargs["step_kw"] = {"last": args.last}
+
+    try:
+        run_flowsheet(args.name, **kwargs)
+    except ValueError as err:
+        print(f"ERROR: {str(err)}")
+        sys.exit(1)
+
+    # unless the user requests, print solver output
+    # (that we captured to the DB)
+    if not args.quiet:
+        from .reportdb import ReportDB
+
+        rpt = Runner.get_report_db().get_last_report()
+        solver_out_steps = rpt["actions"][ActionNames.SOLVER_OUTPUT.value]["output"]
+        for step_name, output in solver_out_steps.items():
+            o = output.strip()
+            if not o:
+                continue
+            s = f"Solve, step={step_name}"
+            n = len(s) + 2
+            div = "+" + "=" * n + "+"
+            print(f"\n{div}\n| {s} |\n{div}\n")
+            print(o)
+
+    sys.exit(0)

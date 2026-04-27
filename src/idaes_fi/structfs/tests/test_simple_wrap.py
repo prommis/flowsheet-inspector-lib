@@ -13,7 +13,6 @@
 """
 Tests for simplified wrapper API.
 """
-
 import pytest
 from idaes_fi.structfs.simple_wrap import _Wrapper, RESULT_FLOWSHEET_KEY
 from idaes.core.util.doctesting import Docstring
@@ -64,6 +63,7 @@ def initialize(m):
 def my_main():
     """Create and solve Flash flowsheet"""
 
+    print("@@ here we go")
     m = build()
     initialize(m)
 

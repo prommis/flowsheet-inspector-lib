@@ -23,7 +23,7 @@ from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import
     BTXParameterBlock,
 )
 from idaes.models.unit_models import Flash
-from idaes_fi.structfs.fsrunner import FlowsheetRunner
+from ..fsrunner import FlowsheetRunner
 
 FS = FlowsheetRunner()
 
@@ -63,6 +63,7 @@ def set_operating_conditions(ctx):
 @FS.step("initialize")
 def init_model(ctx):
     """ "Initialize the model."""
+    print("-- INITIALIZE")
     m = ctx.model
     m.fs.flash.initialize(outlvl=idaeslog.INFO)
 
@@ -77,4 +78,3 @@ def set_solver(ctx):
 def solve(ctx):
     """Perform the initial model solve."""
     ctx.solve()
-    # ctx["result"] = ctx.solver.solve(ctx.model, tee=ctx["tee"])

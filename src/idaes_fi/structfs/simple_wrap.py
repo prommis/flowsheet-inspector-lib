@@ -137,7 +137,7 @@ class _Wrapper:
     def _build(ctx):
         model, solve_result = _FS.main_func(*_FS.main_func_args, **_FS.main_func_kwargs)
         ctx.model = model
-        ctx["results"] = solve_result  # pylint: disable=E1137
+        ctx.solve()
 
     @classmethod
     def main(cls, solve=True, **main_kw):
@@ -157,6 +157,7 @@ class _Wrapper:
         def fi_wrapper_factory(main_fn):
             # note: don't change 'fi_wrapper' name, since this
             # is used for auto-detection of the method in user's code
+
             def fi_wrapper(*args, **kwargs):
                 if "module" not in main_kw:
                     main_kw["module"] = inspect.getmodule(main_fn).__name__

@@ -10,8 +10,10 @@
 # All rights reserved.  Please see the files COPYRIGHT.md and LICENSE.md
 # for full copyright and license information.
 #################################################################################
-import pytest
+from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 from pyomo.environ import ConcreteModel, SolverStatus, TerminationCondition, Var
 from idaes.core import FlowsheetBlock
 from .. import fsrunner
@@ -22,7 +24,9 @@ from ..fsrunner import (
     wrapped_main,
     run_wrapped_main,
     Context,
+    run_flowsheet,
 )
+from ..common import ActionNames
 
 from .flash_flowsheet import FS as flash_fs
 import idaes_fi.structfs as structfs
@@ -171,12 +175,17 @@ def test_run_wrapped():
     assert report
     assert "actions" in report
     actions = report["actions"]
+    an = ActionNames
     for k in (
-        "degrees_of_freedom",
-        "model_variables",
-        "capture_solver_output",
-        "mermaid_diagram",
-        "timings",
+        name.value
+        for name in (
+            an.DOF,
+            an.MODEL_VARIABLES,
+            an.DIAGNOSTICS,
+            an.MERMAID_DIAGRAM,
+            an.STREAM_TABLE,
+            an.TIMINGS,
+        )
     ):
         assert k in actions
         print(f"action={k}")
@@ -288,3 +297,104 @@ def test_base_flowsheet_runner_before_after_and_annotate_error():
     ann["v"]["title"] = "changed"
     print(f"@@ after: _ann = {rn._ann}")
     assert rn.annotated_vars["v"]["title"] != "changed"
+
+
+@pytest.mark.component
+def test_run_flowsheet_main(tmp_path):
+    main_fs = _create_main_fs(tmp_path)
+    run_flowsheet(main_fs)
+
+
+@pytest.mark.component
+def test_run_flowsheet_wrapped(tmp_path):
+    runner_fs = _create_runner_fs(tmp_path)
+    run_flowsheet(runner_fs)
+
+
+def _create_main_fs(p: Path):
+    ofname = p / "test_main_fs.py"
+    f = ofname.open("w")
+    f.write(
+        "from pyomo.environ import ConcreteModel, SolverFactory\n"
+        "from idaes.core import FlowsheetBlock\n"
+        "import idaes.logger as idaeslog\n"
+        "from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE          "
+        "import BTXParameterBlock\n"
+        "from idaes.models.unit_models import Flash\n"
+        "from idaes_fi.structfs import fi_main\n"
+    )
+    f.write(
+        """def build():
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = BTXParameterBlock(
+        valid_phase=("Liq", "Vap"), activity_coeff_model="Ideal", state_vars="FTPz"
+    )
+    m.fs.flash = Flash(property_package=m.fs.properties)
+    # assert degrees_of_freedom(m) == 7
+    m.fs.flash.inlet.flow_mol.fix(1)
+    m.fs.flash.inlet.temperature.fix(368)
+    m.fs.flash.inlet.pressure.fix(101325)
+    m.fs.flash.inlet.mole_frac_comp[0, "benzene"].fix(0.5)
+    m.fs.flash.inlet.mole_frac_comp[0, "toluene"].fix(0.5)
+    m.fs.flash.heat_duty.fix(0)
+    m.fs.flash.deltaP.fix(0)
+    return m
+def initialize(m):
+    m.fs.flash.initialize(outlvl=idaeslog.INFO)    
+@fi_main()
+def my_main():
+    m = build()
+    initialize(m)
+    solver = SolverFactory("ipopt")
+    result = solver.solve(m, tee=True)
+
+    return m, result
+"""
+    )
+    return ofname
+
+
+def _create_runner_fs(p: Path):
+    ofname = p / "test_runner_fs.py"
+    f = ofname.open("w")
+    f.write(
+        "from pyomo.environ import ConcreteModel, SolverFactory\n"
+        "from idaes.core import FlowsheetBlock\n"
+        "import idaes.logger as idaeslog\n"
+        "from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE "
+        "import BTXParameterBlock\n"
+        "from idaes.models.unit_models import Flash\n"
+        "from idaes_fi.structfs import FlowsheetRunner\n"
+    )
+    f.write(
+        """FS = FlowsheetRunner()
+@FS.step("build")
+def build(ctx):
+    m = ConcreteModel()
+    m.fs = FlowsheetBlock(dynamic=False)
+    m.fs.properties = BTXParameterBlock(
+        valid_phase=("Liq", "Vap"), activity_coeff_model="Ideal", state_vars="FTPz"
+    )
+    m.fs.flash = Flash(property_package=m.fs.properties)
+    # assert degrees_of_freedom(m) == 7
+    m.fs.flash.inlet.flow_mol.fix(1)
+    m.fs.flash.inlet.temperature.fix(368)
+    m.fs.flash.inlet.pressure.fix(101325)
+    m.fs.flash.inlet.mole_frac_comp[0, "benzene"].fix(0.5)
+    m.fs.flash.inlet.mole_frac_comp[0, "toluene"].fix(0.5)
+    m.fs.flash.heat_duty.fix(0)
+    m.fs.flash.deltaP.fix(0)
+    ctx.model = m
+@FS.step("initialize")
+def initialize(ctx):
+    m = ctx.model
+    m.fs.flash.initialize(outlvl=idaeslog.INFO)    
+@FS.step("solve_initial")
+def solve(ctx):
+    m = ctx.model
+    solver = SolverFactory("ipopt")
+    ctx.result = solver.solve(m, tee=True)
+"""
+    )
+    return ofname

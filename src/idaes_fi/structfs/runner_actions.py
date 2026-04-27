@@ -586,7 +586,7 @@ class GetSolverResults(SolverActionBase):
             if k in ("Solver", "Problem"):
                 sr_attr = k.lower()
             else:
-                self.log.warning(f"Ignoring unknown key in solver results: {k}")
+                self.log.info(f"Ignoring unknown key in solver results: {k}")
                 continue
             # extract Pyomo list for a given attr into SolverResult
             for i in range(n):
