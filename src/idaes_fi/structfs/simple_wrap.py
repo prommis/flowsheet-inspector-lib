@@ -137,7 +137,7 @@ class _Wrapper:
     def _build(ctx):
         model, solve_result = _FS.main_func(*_FS.main_func_args, **_FS.main_func_kwargs)
         ctx.model = model
-        ctx.solve()
+        ctx.results = solve_result
 
     @classmethod
     def main(cls, solve=True, **main_kw):

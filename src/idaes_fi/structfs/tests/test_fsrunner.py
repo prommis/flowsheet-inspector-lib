@@ -286,8 +286,7 @@ def _create_main_fs(p: Path):
         "from idaes.models.unit_models import Flash\n"
         "from idaes_fi.structfs import fi_main\n"
     )
-    f.write(
-        """def build():
+    f.write("""def build():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
     m.fs.properties = BTXParameterBlock(
@@ -313,8 +312,7 @@ def my_main():
     result = solver.solve(m, tee=True)
 
     return m, result
-"""
-    )
+""")
     return ofname
 
 
@@ -330,8 +328,7 @@ def _create_runner_fs(p: Path):
         "from idaes.models.unit_models import Flash\n"
         "from idaes_fi.structfs import FlowsheetRunner\n"
     )
-    f.write(
-        """FS = FlowsheetRunner()
+    f.write("""FS = FlowsheetRunner()
 @FS.step("build")
 def build(ctx):
     m = ConcreteModel()
@@ -358,6 +355,5 @@ def solve(ctx):
     m = ctx.model
     solver = SolverFactory("ipopt")
     ctx.result = solver.solve(m, tee=True)
-"""
-    )
+""")
     return ofname

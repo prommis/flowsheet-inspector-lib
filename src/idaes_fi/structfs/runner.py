@@ -463,9 +463,7 @@ class Runner:
 
     def _step_begin(self, name: str):
         for action in self._actions.values():
-            print(f"@@ step_begin: call before_step({action})")
             action.before_step(name)
-            print(f"@@ step_begin: done before_step({action})")
 
     def _substep_begin(self, base: str, name: str):
         for action in self._actions.values():
@@ -496,20 +494,13 @@ class Runner:
         def step_decorator(func):
 
             def wrapper(*args, **kwargs):
-                print("@@ begin the step")
                 self._step_begin(name)
-                print("@@ begin the step 2")
                 ok, run_err = True, None
                 try:
-                    print("@@ srun1")
                     result = func(*args, **kwargs)
-                    print("@@ srun2")
                 except Exception as err:
-                    print(f"@@ step failed: {err}")
                     ok, result, run_err = False, None, err
-                print(f"@@ got result: {result}")
                 if ok:
-                    print("@@ step ok")
                     self._step_end(name)
                 else:
                     self._failed = (name, run_err)
