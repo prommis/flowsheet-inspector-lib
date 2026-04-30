@@ -6,12 +6,18 @@ on:
 jobs:
   test:
     name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         python-version: [ "3.11", "3.12", "3.13" ]
 
     steps:
+      - name: Set up Conda environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: flowsheet-inspector
+          python-version: ${{ matrix.python-version }}
+
       - name: Check out repository
         uses: actions/checkout@v4
 
