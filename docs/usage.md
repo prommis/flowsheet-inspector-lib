@@ -1,7 +1,7 @@
 ---
 title: Flowsheet Inspector Library Usage
 ---
-## Flowsheet Inspector Library Usage
+# Flowsheet Inspector Library Usage
 
 The Flowsheet Inspector (FI) library is primarily a way to "wrap" the functions
 used to build, set up, and solve a flowsheet so that these steps can be
@@ -15,19 +15,19 @@ describes how to run it and get back the information it collects during the
 actions. For information on how to wrap the flowsheet, see the [API](api)
 section.
 
-### VSCode extension
+## VSCode extension
 
 You can load and run FI flowsheets with our VSCode extension. Please see the
 [FI VSCode extension](https://github.com/prommis/flowsheet-inspector) for
 details.
 
-### Command-line (shell)
+## Command-line (shell)
 
 You can run a flowsheet from the command-line with `fi-run`.
 
-#### Usage
+### Usage
 
-```{code} shell
+```{code} text
 $ fi-run -h
 usage: fi-run [-h] [--attr ATTR] [--last LAST] [-q] [-v] name
 
@@ -50,7 +50,7 @@ options:
 
 ```
 
-#### Examples
+### Examples
 
 To run the structured flowsheet in `excellent_flowsheet.py` in the current
 directory:
@@ -67,7 +67,7 @@ $ fi-run excellent_flowsheet.py --attr fs1
 ```
 
 
-### Python API in a script
+## Python API in a script
 
 There are two basic ways to run structure flowsheets in a script.
 
@@ -105,7 +105,7 @@ def run_flowsheet(
     """
 ```
 
-### Python API in a Jupyter Notebook
+## Python API in a Jupyter Notebook
 
 Usage in Jupyter is the same as in a Python program. In this environment the
 `fi_main` decorator may be handy. For a full example, see this

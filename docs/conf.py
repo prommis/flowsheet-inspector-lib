@@ -55,10 +55,28 @@ autodoc2_docstring_parser_regexes = [
     # render docstrings in matching files as Markdown
     ("../src/idaes_fi/.*", "myst"),
 ]
-autodoc2_no_index = True
+autodoc2_no_index = False
 autodoc2_index_template = None  # don't write index.rst
 # Put type hints in the description, not signature
 autodoc_typehints = "description"
+
+# Nitpicky mode reports unresolved links for generated type annotations from
+# external libraries and a few legacy references in source docstrings. Keep
+# internal API references checked, but do not require external inventories.
+nitpick_ignore = [
+    ("py:class", "idaes_fi.structfs.runner.Actions"),
+    ("py:class", "structfs.fsrunner.Context"),
+]
+nitpick_ignore_regex = [
+    (r"py:.*", r"abc\..*"),
+    (r"py:.*", r"collections\.abc\..*"),
+    (r"py:.*", r"enum\..*"),
+    (r"py:.*", r"idaes\..*"),
+    (r"py:.*", r"logging\..*"),
+    (r"py:.*", r"pathlib\..*"),
+    (r"py:.*", r"pydantic\..*"),
+    (r"py:.*", r"types\..*"),
+]
 
 # Avoid duplicating heading labels across parallelly constructed documentation
 autosectionlabel_prefix_document = True
