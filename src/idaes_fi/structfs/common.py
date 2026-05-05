@@ -38,33 +38,35 @@ class ActionNames(Enum):
     TIMINGS = "timings"
 
 
-class _StepsMeta(type):
-    def __getattr__(cls, name):
-        try:
-            return cls.index[name]
-        except KeyError:
-            raise AttributeError(name) from None
-
-
-class Steps(metaclass=_StepsMeta):
+class Steps:
     """Names of steps so that editor autocomplete, etc., will help
     to avoid typos.
     """
 
-    index = OrderedDict(
-        [
-            ("build", "build"),
-            ("set_solver", "set_solver"),
-            ("initialize", "initialize"),
-            ("set_operating_conditions", "set_operating_conditions"),
-            ("set_scaling", "set_scaling"),
-            ("solve_initial", "solve_initial"),
-            ("set_autoscaling", "set_autoscaling"),
-            ("add_costing", "add_costing"),
-            ("initialize_costing", "initialize_costing"),
-            ("setup_optimization", "setup_optimization"),
-            ("solve_optimization", "solve_optimization"),
-        ]
+    build = "build"
+    set_solver = "set_solver"
+    initialize = "initialize"
+    set_operating_conditions = "set_operating_conditions"
+    set_scaling = "set_scaling"
+    solve_initial = "solve_initial"
+    set_autoscaling = "set_autoscaling"
+    add_costing = "add_costing"
+    initialize_costing = "initialize_costing"
+    setup_optimization = "setup_optimization"
+    solve_optimization = "solve_optimization"
+
+    index = (
+        build,
+        set_solver,
+        initialize,
+        set_operating_conditions,
+        set_scaling,
+        solve_initial,
+        set_autoscaling,
+        add_costing,
+        initialize_costing,
+        setup_optimization,
+        solve_optimization,
     )
 
     @classmethod

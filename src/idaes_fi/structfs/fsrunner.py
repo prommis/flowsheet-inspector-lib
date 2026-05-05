@@ -563,7 +563,7 @@ def main(args=None):
         "containing structured flowsheet (e.g., 'FS'). "
         "This is only needed if there is more than one.",
     )
-    steppenlist = ", ".join(Steps.index.values())
+    steppenlist = ", ".join(Steps.index)
     ap.add_argument(
         "--last",
         default=None,
