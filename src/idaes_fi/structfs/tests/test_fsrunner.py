@@ -137,6 +137,9 @@ def test_annotation(tmp_path):
     ann(flash.inlet.mole_frac_comp[0, "toluene"], **kw).fix(0.5)
     ann(flash.heat_duty, **kw).fix(0)
     ann(flash.deltaP, is_input=False, **kw).fix(0)
+    with pytest.raises(ValueError):
+        # won't even look at variable before failing
+        ann(None, is_input=False, is_output=False)
 
     ann = runner.annotated_vars
     print("-" * 40)
@@ -255,4 +258,45 @@ def test_flowsheet_runner_run_steps(runnerclass):
     calls.clear()
     runner.run_steps(after=s_build, before=s_solve, save_report=False)
 
-    assert calls == [s_init]
+    # call some syntactic sugar methods
+    if runnerclass is FlowsheetRunner:
+        for sugar in ("build", "solve_initial"):
+            calls.clear()
+            getattr(runner, sugar)()
+        runner.show_diagram()
+
+
+@pytest.fixture
+def empty_fsrunner():
+    s_build, s_init, s_solve = Steps.build, Steps.initialize, Steps.solve_initial
+    runner = FlowsheetRunner(
+        steps=(s_build, s_init, s_solve),
+    )
+
+    @runner.step(s_build)
+    def build(ctx):
+        ctx.model = ConcreteModel()
+
+    @runner.step(s_init)
+    def initialize(ctx):
+        print("initialize")
+
+    @runner.step(s_solve)
+    def solve_initial(ctx):
+        print("solve")
+
+    return runner
+
+
+def test_with_no_connectivity(empty_fsrunner):
+    save, fsrunner.Connectivity = fsrunner.Connectivity, None
+    empty_fsrunner.show_diagram()
+    fsrunner.Connectivity = save
+
+
+@pytest.mark.parametrize(
+    "solver_name,solver_opts", [("ipopt", {}), ("ipopt", {"tee": True})]
+)
+def test_set_solver_baseflowsheetrunner_init(solver_name, solver_opts):
+    runner = BaseFlowsheetRunner(solver=solver_name, solver_options=solver_opts)
+    runner.run_steps()

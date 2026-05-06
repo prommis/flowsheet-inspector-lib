@@ -386,7 +386,7 @@ class Runner:
                     f"{action_name} failed in 'before_run' (no other actions will be run)"
                 )
                 where = action_name + ".after_run"
-                self._failed = where
+                self._failed = (where, err)
                 self._actions_failed[where] = err
                 break  # one failure => all failure
 
@@ -423,7 +423,7 @@ class Runner:
                         _log.error("Multiple failures: only first will be reported")
                     else:
                         where = action_name + ".after_run"
-                        self._failed = where
+                        self._failed = (where, err)
                         self._actions_failed[where] = err
                     continue  # allow all after_run actions, only record first failure
 

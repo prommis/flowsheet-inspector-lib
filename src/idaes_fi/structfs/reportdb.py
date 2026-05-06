@@ -18,6 +18,7 @@ import json
 import logging
 import sqlite3
 import time
+from contextlib import contextmanager
 
 __author__ = "Dan Gunter (LBNL)"
 
@@ -96,13 +97,22 @@ class ReportDB:
         """Get (a copy of) the target keywords, as a dict {column: value}"""
         return self._tgtval.copy()
 
+    @contextmanager
     def _connect(self):
+        if _log.isEnabledFor(logging.DEBUG):
+            _log.debug("Connecting to SQLite database: {self._filename}")
         try:
             conn = sqlite3.connect(self._filename)
         except sqlite3.OperationalError as err:
             _log.error(f"Cannot connect to report database '{self._filename}' ({err})")
             raise RuntimeError(err)
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+            if _log.isEnabledFor(logging.DEBUG):
+                _log.debug("Done with SQLite database: {self._filename}")
 
     def create(self, drop=False):
         """Create the reports table in the database.
@@ -120,7 +130,6 @@ class ReportDB:
                 conn.execute(f"DROP TABLE {self.TABLE};")
             create_cols = self._all_columns(typed=True)
             conn.execute(f"CREATE TABLE {self.TABLE} ( {', '.join(create_cols)} );")
-            conn.commit()
 
     def _all_columns(self, typed=False, exclude=None):
         result = []
@@ -196,7 +205,6 @@ class ReportDB:
             cur.execute(stmt, colvalues)
             # cleanup
             cur.close()
-            conn.commit()
 
     def get_metadata(self, tags: str = "", **target_kw):
         """Yield metadata rows for reports matching the provided filters.
