@@ -23,6 +23,7 @@ from ..fsrunner import (
     Context,
     run_flowsheet,
 )
+from ..runner import Runner
 from ..common import ActionNames, Steps
 
 from .flash_flowsheet import FS as flash_fs
@@ -512,3 +513,49 @@ def test_fsrunner_main(args, opts, ok, bad, tmp_path):
             assert retcode == 0
         else:
             assert retcode != 0
+
+
+def test_fsrunner_main_no_default_report_db(monkeypatch, capsys):
+    class ValueErrorFilename:
+        @property
+        def filename(self):
+            raise ValueError()
+
+    class FakeRunner:
+
+        @classmethod
+        def nonexist_report_db(cls, create=True):
+            return ValueErrorFilename()
+
+    monkeypatch.setattr(Runner, "get_default_report_db", FakeRunner.nonexist_report_db)
+
+    cmd = ["-h"]
+    try:
+        fsrunner.main(cmd)
+    except SystemExit:
+        pass
+
+    captured = capsys.readouterr()
+    for line in captured.out.split("\n"):
+        line = line.strip()
+        print(f"CAPTURED: {line}")
+        if line.startswith("--db"):
+            assert "default=?unknown?" in line
+
+
+def test__find_wrapped_main():
+    def fi_wrapper(*args, **kwargs):
+        return
+
+    fake_module = SimpleNamespace(
+        fi_main=True, main1=fi_wrapper, main2=fi_wrapper, __name__="fake_module"
+    )
+
+    # multiple main()
+    with pytest.raises(ValueError):
+        fsrunner._find_wrapped_main(fake_module)
+
+    # no main()
+    fake_module = SimpleNamespace(fi_main=True, __name__="fake_module")
+    result = fsrunner._find_wrapped_main(fake_module)
+    assert result is None

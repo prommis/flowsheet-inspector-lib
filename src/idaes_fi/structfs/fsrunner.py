@@ -507,7 +507,7 @@ def main(args=None):
     ap.add_argument(
         "--db",
         "-D",
-        help=f"Alternate SQLite database file for results (default=~{default_report_file})",
+        help=f"Alternate SQLite database file for results (default={default_report_file})",
         default=None,
     )
     ap.add_argument(
