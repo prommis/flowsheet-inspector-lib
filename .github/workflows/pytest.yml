@@ -4,12 +4,35 @@ on:
   pull_request:
 
 jobs:
+  code-formatting:
+    name:
+      Check code formatting (Black)
+      # OS and/or Python version don't make a difference, so we choose ubuntu and 3.10 for performance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # pick highest version, since Black complains sometimes
+          # if it comes from an earlier version of Python
+          python-version: 3.14
+      - name: Install Black
+        run: |
+          # get version from pyproject.toml
+          black_requirement="$(grep -o 'black\s*>=\s*\w*' pyproject.toml)"
+          # install selected version
+          pip --no-cache-dir install --progress-bar off "$black_requirement"
+      - name: Run Black to verify that the committed code is formatted
+        run: |
+          black --check --diff src
+
   test:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-22.04
+    needs: code-formatting
     strategy:
       matrix:
-        python-version: [ "3.11", "3.12", "3.13" ]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - name: Set up Conda environment
