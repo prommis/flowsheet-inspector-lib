@@ -130,13 +130,11 @@ class UnitModelReport(Action):
 
         # Get performance variables
         performance = comp._get_performance_contents(time_point=time_point)
-        print(f"@@ 1 with performance={performance}")
         if performance is None or performance == {}:
             self.log.warning(
                 f"Empty performance contents for {rpt.model_type.value} model {comp}"
             )
         else:
-            print(f"@@ 2 with performance={performance}")
             # reformat variable values
             for section in ("vars",):
                 try:
