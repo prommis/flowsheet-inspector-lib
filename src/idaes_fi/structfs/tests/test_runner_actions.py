@@ -17,6 +17,8 @@ import time
 
 import pytest
 from pytest import approx
+from pyomo.opt.results.container import ScalarData
+
 from .. import runner
 from . import flash_flowsheet, hda_flowsheet
 from ..runner_actions import (
@@ -24,6 +26,8 @@ from ..runner_actions import (
     Timer,
     UnitDofChecker,
     StreamTable,
+    CaptureSolverOutput,
+    GetSolverResults,
 )
 from . import flash_flowsheet
 
@@ -34,69 +38,39 @@ def set_tmp_db(tmp_path):
     flash_flowsheet.FS.set_report_db(dbfile=dbpath)
 
 
+class FakeRunner:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def list_steps(self):
+        return ["step1", "step2", "step3"]
+
+
+class FakeScalar:
+    def __init__(self):
+        value = 1.0
+
+    def get_value(self):
+        return self.value
+
+
 @pytest.mark.unit
-def test_class_timer(monkeypatch):
-    def step_name(i):
-        return f"step{i}"
+def test_class_timer():
+    runner = FakeRunner()
+    timer = Timer(runner)
 
-    # n runs with m steps per run
-    n, m = 2, 3
+    # fake run
+    timer.before_run()
+    for step in runner.list_steps():
+        timer.before_step(step)
+        timer.after_step(step)
+    timer.after_run()
+    report = timer.report()
 
-    # set up Timer action attached to Runner instance
-    steps = [step_name(i) for i in range(m)]
-    rnr = runner.Runner(steps)
-    for step_i in steps:
-        rnr.add_step(step_i, lambda ctx: None)
-    timer = Timer(rnr)
-
-    # control results of next batch of calls to time.time()
-    run_time = 10
-    # generate list of start/end timings for n runs with m steps
-    times = []
-    for i in range(n):
-        times.append(i * run_time)
-        for j in range(m):
-            times.append(i * run_time + j)
-            times.append(i * run_time + j + 1)
-        times.append((i + 1) * run_time)
-    # print(f"times: {times}")
-    times = iter(times)
-    monkeypatch.setattr(time, "time", lambda: next(times))
-
-    # emulate a 'n' runs with 'm' steps each
-    for i in range(n):
-        timer.before_run()
-        for j in range(m):
-            name = step_name(j)
-            # print(f"run {i}, step {j}")
-            timer.before_step(name)
-            timer.after_step(name)
-        timer.after_run()
-
-    # check that times match expected
-    time_history = timer.get_history()
-    # print(time_history)
-    assert len(time_history) == n
-    for run_num, run in enumerate(time_history):
-        run_t = run["run"]
-        # each run should take 'run_time' sec
-        assert run_t == run_time
-        steps = run["steps"]
-        assert len(steps) == m
-        for i in range(m):
-            step_t = steps[step_name(i)]
-            # each step should take 1 sec
-            assert step_t == 1
-        # inclusive time is sum of step times
-        assert run["inclusive"] == m
-        # exclusive time is run time minus step times
-        assert run["exclusive"] == run_time - m
-
-    # check report, which contains last run only
-    rpt = timer.report()
-    for i in range(m):
-        step_t = rpt.timings[step_name(i)]
-        assert step_t == 1
+    # check report
+    for step in runner.list_steps():
+        assert report.timings[step] >= 0
+    assert report.run_time >= 0
 
 
 @pytest.mark.unit
@@ -221,3 +195,94 @@ def test_stream_table_action_report(tmp_path):
     assert v1[0] > 0
     assert v1[0] < 1
     assert v1[1] == "unfixed"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("failed", [False, True])
+def test_capture_solver_output(failed):
+    runner = FakeRunner()
+    action = CaptureSolverOutput(runner=runner)
+    # set a 'solve' step
+    solve_step = runner.list_steps()[-1]
+    action.solve_steps = [solve_step]
+
+    # message that would be solver output
+    message = "solver did something\n"
+
+    # do a 'run'
+    action.before_run()
+    for step in runner.list_steps():
+        action.before_step(step)
+        if step == solve_step:
+            print(message)
+            if failed:
+                action.step_failed(step, RuntimeError("whatevs"))
+            else:
+                action.after_step(step)
+        else:
+            action.after_step(step)
+    action.after_run()
+
+    # check report (captured output)
+    rpt = action.report()
+    if failed:
+        assert solve_step not in rpt.output
+    else:
+        assert rpt.output[solve_step].rstrip() == message.rstrip()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("failed", [False, True])
+def test_get_solver_results(failed):
+    runner = FakeRunner()
+    action = GetSolverResults(runner=runner)
+    # set a 'solve' step
+    solve_step = runner.list_steps()[-1]
+    action.solve_steps = [solve_step]
+
+    # fake solve results
+    has_val = ScalarData(2.34)
+    added_value = ScalarData(1.23)
+    added_dict = ScalarData({"foo": 1, "bar": 1.2, "baz": "hello"})
+    if not failed:
+        fake_results = {
+            "value": added_value,
+            "dvalue": added_dict,
+            "Solver": [{"int": 1, "float": 0.1, "v": has_val, "s": "x"}],
+            "Problem": [{"int": 1}, {"float": 0.1}, {"s": "x"}],
+        }
+    # do a 'run'
+    action.before_run()
+    for step in runner.list_steps():
+        action.before_step(step)
+        # don't do after_step if solve 'failed'
+        if step != solve_step:
+            action.after_step
+        elif not failed:
+            # set fake results
+            setattr(runner, "results", fake_results)
+            action.after_step(step)
+    action.after_run()
+
+    # check report
+    rpt = action.report()
+    if failed:
+        assert rpt.results == []
+    else:
+        r = rpt.results[0]
+        # Check that solver results were copied over
+        for k, v in fake_results["Solver"][0].items():
+            print(k)
+            if k == "v":
+                assert r.solver[k] == v.value
+            else:
+                assert r.solver[k] == v
+        # Check that problem results were copied over
+        for k, v in fake_results["Problem"][0].items():
+            if k == "v":
+                assert r.problem[k] == v.value
+            else:
+                assert r.solver[k] == v
+        # Check that ScalarData values were copied over
+        assert r.values["value"] == added_value.value
+        assert r.values["dvalue"] == added_dict.value

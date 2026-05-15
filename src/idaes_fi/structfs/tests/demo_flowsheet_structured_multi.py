@@ -71,5 +71,23 @@ def runner_solve_flowsheet(ctx):
     ctx.results = solve_flowsheet(ctx.model, ctx.solver, stee=True)
 
 
+FS3 = FlowsheetRunner(name="Demo Flowsheet 3", tags="test demo", module=__name__)
+
+
+@FS3.step(Steps.build)
+def build(ctx):
+    ctx.model = build_flowsheet()
+
+
+@FS3.step(Steps.set_solver)
+def set_solver(ctx):
+    ctx.solver = get_solver("ipopt")
+
+
+@FS3.step(Steps.solve_optimization)
+def runner_solve_flowsheet(ctx):
+    ctx.results = solve_flowsheet(ctx.model, ctx.solver, stee=True)
+
+
 if __name__ == "__main__":
     FS.run_steps()

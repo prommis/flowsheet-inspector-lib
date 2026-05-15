@@ -1,0 +1,13 @@
+[run]
+omit =
+    tests/*
+    */tests/*
+    test/*
+    */test/*
+
+[report]
+omit =
+    tests/*
+    */tests/*
+    test/*
+    */test/*

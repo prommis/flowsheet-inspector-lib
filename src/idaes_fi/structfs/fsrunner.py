@@ -19,7 +19,6 @@ in `FlowsheetRunner`.
 import argparse
 from copy import deepcopy
 from enum import Enum
-import inspect
 import logging
 from pathlib import Path
 import sys
@@ -45,6 +44,7 @@ from .common import (
     DEFAULT_SOLVER_NAME,
     RESULT_FLOWSHEET_KEY,
     load_module,
+    find_flowsheet_objects,
     Steps,
 )
 from .. import gitutil
@@ -400,7 +400,7 @@ def run_flowsheet(
     """
     mod = load_module(module_or_path=module_or_path)
     target_kw = _module_target(mod)
-    obj_map = _find_global_flowsheet(mod)
+    obj_map = find_flowsheet_objects(mod)
     if obj_map:
         if fs_attr:
             if fs_attr not in obj_map:
@@ -451,27 +451,6 @@ def _module_target(mod):
     return target_kw
 
 
-def _find_global_flowsheet(a_module) -> dict[str, BaseFlowsheetRunner]:
-    """Find a global flowsheet object.
-    This is defined as the first object that is an instance of BaseFlowsheetRunner.
-
-    Return:
-        Dict mapping attribute name(s) to flowsheet object(s), or empty dict if none found
-    """
-    obj_map = {}
-    for key in dir(a_module):
-        obj = getattr(a_module, key)
-        # for reasons I will never understand, a simple isinstance()
-        # is not reliable; anyways, duck-typing this is probably better
-        if (
-            not inspect.isclass(obj)
-            and hasattr(obj, "run_steps")
-            and hasattr(obj, "model")
-        ):
-            obj_map[key] = obj
-    return obj_map
-
-
 def _find_wrapped_main(a_module) -> FunctionType | None:
     """Find a wrapped flowsheet main function.
 
@@ -507,7 +486,7 @@ def main(args=None):
     ap.add_argument(
         "--db",
         "-D",
-        help=f"Alternate SQLite database file for results (default=~{default_report_file})",
+        help=f"Alternate SQLite database file for results (default={default_report_file})",
         default=None,
     )
     ap.add_argument(
@@ -569,8 +548,11 @@ def main(args=None):
     try:
         fs = run_flowsheet(args.name, report_db_file=args.db, **kwargs)
     except ValueError as err:
-        print(f"ERROR: {str(err)}")
+        print(f"ERROR: {err}")
         return 1
+    except ModuleNotFoundError as err:
+        print(f"ERROR loading flowsheet module: {err}")
+        return 2
 
     # unless the user requests, print solver output
     # (that we captured to the DB)
@@ -587,8 +569,8 @@ def main(args=None):
             print(f"\n{div}\n| {s} |\n{div}\n")
             print(o)
 
-    sys.exit(0)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

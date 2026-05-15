@@ -57,7 +57,7 @@ from ..compute_diagnostics import (
     ComponentList,
     DiagnosticsError,
 )
-from .runner import Action
+from .action_base import Action
 from .fsrunner import BaseFlowsheetRunner
 
 
@@ -69,6 +69,7 @@ class Timer(Action):
 
         # {"step_name": <float time>, ..} for each step
         timings: dict[str, float] = Field(default={})
+        run_time: float = -1.0
 
     def __init__(self, runner, **kwargs):
         """Constructor.
@@ -83,10 +84,12 @@ class Timer(Action):
             run_times: List of timings for a run (sequence of steps)
         """
         super().__init__(runner, **kwargs)
-        self.step_times: list[dict[str, float]] = []
-        self.run_times: list[float] = []
-        self._run_begin, self._step_begin = None, {}
         self._step_order = runner.list_steps()
+        # initialize all step times to -1
+        self.step_times: dict[str, float] = {step: -1 for step in self._step_order}
+        self.run_time: float = -1
+        # initialize internal variables
+        self._run_begin, self._step_begin = None, {}
 
     def before_step(self, step_name):
         """Record the start time for a step.
@@ -119,83 +122,19 @@ class Timer(Action):
     def after_run(self):
         """Finalize run timing data after a run completes."""
         t1 = time.time()
+
+        # set run time
         if self._run_begin is None:
             self.log.warning("Timer: run end without begin")
+            self.run_time = -1
         else:
-            self.run_times.append(t1 - self._run_begin)
+            self.run_time = t1 - self._run_begin
             self._run_begin = None
-            filled_times = {}
-            for step in self._runner.list_steps():
-                filled_times[step] = self._cur_step_times.get(step, -1)
-            self.step_times.append(filled_times)
 
-    def __len__(self):
-        """Return the number of recorded runs.
-
-        Returns:
-            The number of completed runs captured by this timer.
-        """
-        return len(self.run_times)
-
-    def get_history(self) -> list[dict]:
-        """Summarize timings
-
-        Returns:
-            Summary of timings (in seconds) for each run in `run_times`:
-              - 'run': Time for the run
-              - 'steps': dict of `{<step_name>: <time(sec)>}`
-              - 'inclusive': total time spent in the steps
-              - 'exclusive': difference between run time and inclusive time
-        """
-        return [self._get_summary(i) for i in range(0, len(self.run_times))]
-
-    def _get_summary(self, i):
-        rt, st = self.run_times[i], self.step_times[i]
-        step_total = sum((max(t, 0) for t in st.values()))
-        return {
-            "run": rt,
-            "steps": st,
-            "inclusive": step_total,
-            "exclusive": rt - step_total,
+        # set all step times
+        self.step_times = {
+            step: self._cur_step_times.get(step, -1) for step in self._step_order
         }
-
-    def summary(self, stream=None, run_idx=-1) -> str | None:
-        """Summary of the timings.
-
-        Args:
-            stream: Output stream, with `write()` method. Return a string if None.
-            run_idx: Index of run, -1 meaning "last one"
-
-        Returns:
-            str: If output stream was None, the text summary; otherwise None
-        """
-        stringio = False
-        if stream is None:
-            stream, stringio = StringIO(), True
-
-        if len(self.run_times) == 0:
-            return ""  # nothing to summarize
-
-        d = self._get_summary(run_idx)
-
-        stream.write("Time per step:\n\n")
-        slen, ttot = -1, 0
-        for s, t in d["steps"].items():
-            if t >= 0:
-                slen = max(slen, len(s))
-                ttot += t
-        sfmt = "  {{s:{slen}s}} : {{t:8.3f}}  {{p:4.1f}}%\n"
-        for s, t in d["steps"].items():
-            if t >= 0:
-                fmt = sfmt.format(slen=slen)
-                stream.write(fmt.format(s=s, t=t, p=t / ttot * 100))
-
-        stream.write(f"\nTotal time: {d['run']:.3f} s\n")
-
-        return stream.getvalue() if stringio else None
-
-    def _ipython_display_(self):
-        print(self.summary())
 
     def report(self) -> Report:
         """Report the timings.
@@ -203,11 +142,7 @@ class Timer(Action):
         Returns:
             The report object
         """
-        if self.step_times:
-            timings = self.step_times[-1].copy()
-        else:
-            timings = {}
-        rpt = self.Report(timings=timings)
+        rpt = self.Report(timings=self.step_times, run_time=self.run_time)
         return rpt
 
 
@@ -289,7 +224,13 @@ class UnitDofChecker(Action):
             self.log.debug(f"Do not check DoF for step: {step_name}")
             return
 
-        fs = self._get_flowsheet()
+        try:
+            fs = self._get_flowsheet()
+        except AttributeError:
+            self.log.error(
+                f"Could not access flowsheet: attribute '{self._fs}' not found."
+            )
+            return
 
         model_dof = degrees_of_freedom(self._get_flowsheet())
         units_dof = {self._fs: model_dof}
@@ -317,48 +258,6 @@ class UnitDofChecker(Action):
     @staticmethod
     def _is_unit_model(block):
         return isinstance(block, ProcessBlockData)
-
-    def summary(self, stream=None, step=None):
-        """Readable summary of the degrees of freedom.
-
-        Args:
-            stream: Output stream, with `write()` method. Return a string if None.
-            step: Specific step to summarize, otherwise all steps.
-
-        Returns:
-            The summary as a string if `stream` was None, otherwise None
-        """
-        if stream is None:
-            stream = StringIO()
-
-        def write_step(sdof, indent=4):
-            sdof = self._steps_dof[step]
-            istr = " " * indent
-            unit_names = list(sdof.keys())
-            ulen = max((len(u) for u in unit_names))
-            dfmt = f"{istr}{{u:{ulen}s}} : {{d}}\n"
-            unit_names.sort()
-            for unit in unit_names:
-                dof = sdof[unit]
-                stream.write(dfmt.format(u=unit, d=dof))
-
-        stream.write(f"Degrees of freedom: {self._model_dof}\n\n")
-        if step is None:
-            stream.write("Degrees of freedom after steps:\n")
-            for step in self._runner.list_steps():
-                if step in self._steps_dof:
-                    stream.write(f"  {step}:\n")
-                    write_step(self._steps_dof[step])
-        else:
-            write_step(self._steps_dof[step], indent=0)
-
-        if isinstance(stream, StringIO):
-            return stream.getvalue()
-        else:
-            stream.flush()
-
-    def _ipython_display_(self):
-        self.summary(stream=sys.stdout)
 
     def get_dof(self) -> dict[str, UnitDofType]:
         """Get degrees of freedom
@@ -574,8 +473,8 @@ class GetSolverResults(SolverActionBase):
                 vv = v.get_value()
                 if isinstance(vv, dict):
                     scalar_value = {}
-                    for k, v in vv.items():
-                        scalar_value[k] = self._sval(v)
+                    for k2, v2 in vv.items():
+                        scalar_value[k2] = self._sval(v2)
                 else:
                     scalar_value = self._sval(vv)
                 scalars[k] = scalar_value

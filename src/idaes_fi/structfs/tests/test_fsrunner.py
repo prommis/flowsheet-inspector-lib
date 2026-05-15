@@ -23,6 +23,7 @@ from ..fsrunner import (
     Context,
     run_flowsheet,
 )
+from ..runner import Runner
 from ..common import ActionNames, Steps
 
 from .flash_flowsheet import FS as flash_fs
@@ -288,6 +289,17 @@ def empty_fsrunner():
     return runner
 
 
+@pytest.fixture
+def empty_fsrunner_build_only():
+    runner = FlowsheetRunner(steps=(Steps.build,))
+
+    @runner.step(Steps.build)
+    def build(ctx):
+        ctx.model = ConcreteModel()
+
+    return runner
+
+
 def test_with_no_connectivity(empty_fsrunner):
     save, fsrunner.Connectivity = fsrunner.Connectivity, None
     empty_fsrunner.show_diagram()
@@ -300,3 +312,246 @@ def test_with_no_connectivity(empty_fsrunner):
 def test_set_solver_baseflowsheetrunner_init(solver_name, solver_opts):
     runner = BaseFlowsheetRunner(solver=solver_name, solver_options=solver_opts)
     runner.run_steps()
+
+
+def test_no_solver_baseflowsheetrunner(empty_fsrunner_build_only):
+    runner = empty_fsrunner_build_only
+
+    runner.run_steps()
+
+
+## Testing the run_flowsheet() function
+
+
+class DummyFlowsheet:
+    def __init__(self):
+        self.model = object()
+        self.report_target = None
+        self.report_db_file = None
+        self.run_steps_calls = []
+
+    def set_report_target(self, **target_kw):
+        self.report_target = target_kw
+
+    def set_report_db(self, dbfile):
+        self.report_db_file = dbfile
+
+    def run_steps(self, **step_kw):
+        self.run_steps_calls.append(step_kw)
+
+
+@pytest.fixture
+def fake_module_loader(monkeypatch):
+    target_kw = {
+        "module": "fake.module",
+        "filename": "fake.py",
+        "filedir": "/fake",
+    }
+    loaded = []
+
+    def set_module(module):
+        def load_module(module_or_path):
+            loaded.append(module_or_path)
+            return module
+
+        monkeypatch.setattr(fsrunner, "load_module", load_module)
+        monkeypatch.setattr(fsrunner, "_module_target", lambda mod: target_kw.copy())
+        return loaded
+
+    return set_module
+
+
+def test_run_flowsheet_runs_global_runner(fake_module_loader, tmp_path):
+    runner = DummyFlowsheet()
+    module = SimpleNamespace(FS=runner)
+    loaded = fake_module_loader(module)
+    dbfile = tmp_path / "reports.db"
+    step_kw = {"last": Steps.build}
+
+    fs = run_flowsheet("fake.module", step_kw=step_kw, report_db_file=dbfile)
+
+    assert fs is runner
+    assert loaded == ["fake.module"]
+    assert runner.report_target == {
+        "module": "fake.module",
+        "filename": "fake.py",
+        "filedir": "/fake",
+    }
+    assert runner.report_db_file == dbfile
+    assert runner.run_steps_calls == [step_kw]
+
+
+def test_run_flowsheet_selects_named_global_runner(fake_module_loader):
+    default = DummyFlowsheet()
+    selected = DummyFlowsheet()
+    module = SimpleNamespace(FS=default, FS2=selected)
+    fake_module_loader(module)
+
+    fs = run_flowsheet("fake.module", fs_attr="FS2")
+
+    assert fs is selected
+    assert default.run_steps_calls == []
+    assert selected.run_steps_calls == [{}]
+
+
+def test_run_flowsheet_raises_for_missing_named_runner(fake_module_loader):
+    runner = DummyFlowsheet()
+    module = SimpleNamespace(FS=runner)
+    fake_module_loader(module)
+
+    with pytest.raises(ValueError, match="specified name 'missing'"):
+        run_flowsheet("fake.module", fs_attr="missing")
+
+    assert runner.run_steps_calls == []
+
+
+def test_run_flowsheet_runs_wrapped_main(fake_module_loader):
+    runner = DummyFlowsheet()
+    calls = []
+
+    def fi_wrapper(**kwargs):
+        calls.append(kwargs)
+        return object(), {fsrunner.RESULT_FLOWSHEET_KEY: runner}
+
+    module = SimpleNamespace(fi_main=object(), main=fi_wrapper)
+    fake_module_loader(module)
+
+    fs = run_flowsheet("fake.module", user_arg=1)
+
+    assert fs is runner
+    assert calls == [{"user_arg": 1}]
+    assert runner.run_steps_calls == []
+
+
+def test_run_flowsheet_raises_when_no_flowsheet_found(fake_module_loader):
+    module = SimpleNamespace()
+    fake_module_loader(module)
+
+    with pytest.raises(ValueError, match="Could not find either"):
+        run_flowsheet("fake.module")
+
+
+def test_run_flowsheet_module_target():
+    # bad input
+    with pytest.raises(TypeError):
+        run_flowsheet(module_or_path={})
+
+    # no wrapped flowsheet
+    with pytest.raises(ValueError):
+        run_flowsheet(module_or_path="idaes_fi.structfs.tests.demo_flowsheet")
+
+    run_flowsheet(module_or_path="idaes_fi.structfs.tests.demo_flowsheet_structured")
+
+
+@pytest.mark.parametrize(
+    "args,opts,ok,bad",
+    [
+        (["f00b4r"], {"foo": "bar"}, False, True),
+        (["f00b4r"], {}, False, False),  # cannot load
+        (["f00b4r", "-v"], {}, False, False),  # cannot load + verbose
+        (["f00b4r", "-v", "-v"], {}, False, False),  # cannot load + 2 * verbose
+        (["f00b4r", "-q"], {}, False, False),  # cannot load + quiet
+        (["f00b4r", "-q", "-v"], {}, False, False),  # cannot load + quiet + verbose
+        # demo, no args
+        (["idaes_fi.structfs.tests.demo_flowsheet_fi_main"], {}, True, False),
+        # demo + verbose
+        (["idaes_fi.structfs.tests.demo_flowsheet_fi_main", "-v"], {}, True, False),
+        # demo + 2 * verbose
+        (
+            ["idaes_fi.structfs.tests.demo_flowsheet_fi_main", "-v", "-v"],
+            {},
+            True,
+            False,
+        ),
+        # demo + quiet
+        (["idaes_fi.structfs.tests.demo_flowsheet_fi_main", "-q"], {}, True, False),
+        # demo + specific last step
+        (
+            ["idaes_fi.structfs.tests.demo_flowsheet_structured"],
+            {"last": Steps.solve_initial},
+            True,
+            False,
+        ),
+        # demo-multi
+        (
+            ["idaes_fi.structfs.tests.demo_flowsheet_structured_multi"],
+            {},
+            True,
+            False,
+        ),
+        # demo-multi + FS2
+        (
+            ["idaes_fi.structfs.tests.demo_flowsheet_structured_multi"],
+            {"attr": "FS2"},
+            True,
+            False,
+        ),
+        # demo-multi + bad attr
+        (
+            ["idaes_fi.structfs.tests.demo_flowsheet_structured_multi"],
+            {"attr": "baaaa"},
+            False,
+            False,
+        ),
+    ],
+)
+def test_fsrunner_main(args, opts, ok, bad, tmp_path):
+    db_file = tmp_path / "test_fsrunner_main.db"
+    cmd = args.copy()
+    for k, v in opts.items():
+        cmd.append(f"--{k}")
+        cmd.append(f"{v}")
+    cmd.append("--db")
+    cmd.append(str(db_file))
+    print(f"Run command: {cmd}")
+    if bad:  # bad args = exit
+        with pytest.raises(SystemExit):
+            fsrunner.main(cmd)
+    else:
+        retcode = fsrunner.main(cmd)
+        if ok:
+            assert retcode == 0
+        else:
+            assert retcode != 0
+
+
+def test_fsrunner_main_no_default_report_db(monkeypatch, capsys):
+    class ValueErrorFilename:
+        @property
+        def filename(self):
+            raise ValueError()
+
+    class FakeRunner:
+
+        @classmethod
+        def nonexist_report_db(cls, create=True):
+            return ValueErrorFilename()
+
+    monkeypatch.setattr(Runner, "get_default_report_db", FakeRunner.nonexist_report_db)
+
+    cmd = ["-h"]
+    try:
+        fsrunner.main(cmd)
+    except SystemExit:
+        pass
+
+    captured = capsys.readouterr()
+    assert "default=?unknown?" in captured.out
+
+
+def test__find_wrapped_main():
+    def fi_wrapper(*args, **kwargs):
+        return
+
+    fake_module = SimpleNamespace(
+        fi_main=True, main1=fi_wrapper, main2=fi_wrapper, __name__="fake_module"
+    )
+
+    # multiple main()
+    with pytest.raises(ValueError):
+        fsrunner._find_wrapped_main(fake_module)
+
+    # no main()
+    fake_module = SimpleNamespace(fi_main=True, __name__="fake_module")
+    result = fsrunner._find_wrapped_main(fake_module)
+    assert result is None

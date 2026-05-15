@@ -14,8 +14,6 @@
 Run functions in a module in a defined, named, sequence.
 """
 
-# stdlib
-from abc import ABC, abstractmethod
 import importlib
 import logging
 from pathlib import Path
@@ -27,6 +25,7 @@ from pydantic import BaseModel
 
 # package
 from idaes.config import get_data_directory
+from .action_base import Action
 from .reportdb import ReportDB
 from .common import ActionNames, Steps
 from .. import gitutil
@@ -96,6 +95,10 @@ class Runner:
     @property
     def failed_actions(self) -> dict[str, str]:
         return self._actions_failed.copy()
+
+    def get_defined_steps(self) -> list[str]:
+        """Get list of defined step (names)."""
+        return [name for name in self._step_names if self._steps.get(name, None)]
 
     def get_report_db(self) -> ReportDB:
         """Get current report database.
@@ -348,6 +351,10 @@ class Runner:
         self._last_run_steps = []
 
         # get indexes of first/last step
+        _log.warning(
+            f"get indexes of first step '{names[0]}' and last step '{names[1]}' "
+            f"in steps {self._step_names}"
+        )
         step_range = [-1, -1]
         for i, step_name in enumerate(names):
             if step_name == self.STEP_ANY:  # meaning first or last defined
@@ -652,83 +659,3 @@ class Runner:
             action_reports[name] = rpt_dict
         # return actions and other metadata as a report
         return {"actions": action_reports, "last_run": self._last_run_steps.copy()}
-
-
-class Action(ABC):
-    """The Action class implements a simple framework to run arbitrary
-    functions before and/or after each step and/or run performed
-    by the `Runner` class.
-    """
-
-    def __init__(self, runner: Runner, log: Optional[logging.Logger] = None):
-        """Constructor
-
-        Args:
-            runner: Reference to the runner that will trigger this action.
-            log: Logger to use when logging informational or error messages
-        """
-        self._runner = runner
-        if log is None:
-            log = _log
-        self.log = log
-        self._dbg = self.log.isEnabledFor(logging.DEBUG)
-
-    def before_step(self, step_name: str):
-        """Perform this action before the named step.
-
-        Args:
-            step_name: Name of the step
-        """
-        return
-
-    def before_substep(self, step_name: str, substep_name: str):
-        """Perform this action before the named sub-step.
-
-        Args:
-            step_name: Name of the step
-            substep_name: Name of the sub-step
-        """
-        return
-
-    def after_step(self, step_name: str):
-        """Perform this action after the named step.
-
-        Args:
-            step_name: Name of the step
-        """
-        return
-
-    def after_substep(self, step_name: str, substep_name: str):
-        """Perform this action after the named sub-step.
-
-        Args:
-            step_name: Name of the step
-            substep_name: Name of the sub-step
-        """
-        return
-
-    def step_failed(self, step_name: str, err: Exception):
-        """Called if the step had an exception
-
-        Args:
-            step_name: Name of the step
-            err: Exception object
-        """
-        return
-
-    def before_run(self):
-        """Perform this action before a run starts."""
-        return
-
-    def after_run(self):
-        """Perform this action after a run ends."""
-        return
-
-    @abstractmethod
-    def report(self) -> BaseModel | dict:
-        """Report the results of the action to the caller.
-
-        Returns:
-            Results as a Pydantic model or Python dict
-        """
-        return
