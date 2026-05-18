@@ -329,7 +329,7 @@ class Runner:
                 p = None
                 if mod.__name__ == "__main__":
                     # if in VSCode, use special attr
-                    nb_path = getattr(mod, "__vsc_ipynb_file__")
+                    nb_path = getattr(mod, "__vsc_ipynb_file__", None)
                     if nb_path:
                         p = Path(nb_path)
                         # clear any existing values
@@ -356,7 +356,7 @@ class Runner:
         self._last_run_steps = []
 
         # get indexes of first/last step
-        _log.warning(
+        _log.info(
             f"get indexes of first step '{names[0]}' and last step '{names[1]}' "
             f"in steps {self._step_names}"
         )

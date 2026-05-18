@@ -335,13 +335,13 @@ class FlowsheetRunner(BaseFlowsheetRunner):
 
         super().__init__(**kwargs)
         dof_steps = [Steps.build, Steps.solve_initial, Steps.solve_optimization]
-
+        # note: put solver_output first to re-enable stdout
+        self.add_action(ActionNames.SOLVER_OUTPUT.value, CaptureSolverOutput)
         self.add_action(ActionNames.DIAGNOSTICS.value, Diagnostics)
         self.add_action(ActionNames.DOF.value, UnitDofChecker, "fs", dof_steps)
         self.add_action(ActionNames.MERMAID_DIAGRAM.value, MermaidDiagram)
         self.add_action(ActionNames.MODEL_REPORTS.value, UnitModelReport)
         self.add_action(ActionNames.MODEL_VARIABLES.value, ModelVariables)
-        self.add_action(ActionNames.SOLVER_OUTPUT.value, CaptureSolverOutput)
         self.add_action(ActionNames.SOLVER_RESULTS.value, GetSolverResults)
         self.add_action(ActionNames.STREAM_TABLE.value, StreamTable)
         self.add_action(ActionNames.TIMINGS.value, Timer)

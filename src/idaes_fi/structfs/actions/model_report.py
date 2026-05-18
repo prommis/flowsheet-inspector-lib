@@ -21,6 +21,7 @@ Unit model report extraction action
 
 # stdlib
 from enum import Enum
+import logging
 
 # IDAES and Pyomo
 from idaes.core.util.units_of_measurement import report_quantity
@@ -195,6 +196,7 @@ class UnitModelReport(Action):
         )
 
     def _get_report(self, comp):
+        self.log.debug("begin _get_report()")
         time_point = 0.0
 
         is_fs = hasattr(comp, "is_flowsheet") and comp.is_flowsheet
@@ -212,6 +214,7 @@ class UnitModelReport(Action):
             )
 
         # Get performance variables
+        debug = self.log.isEnabledFor(logging.DEBUG)
         performance = comp._get_performance_contents(time_point=time_point)
         if performance is None or performance == {}:
             self.log.debug(
@@ -222,21 +225,41 @@ class UnitModelReport(Action):
                 return None  # stop!
         else:
             # reformat variable values
-            for section in ("vars",):
+            for section in ("vars", "exprs", "params"):
                 try:
                     performance_section = performance[section]
                 except KeyError:
-                    self.log.error(f"Missing 'vars' section in model report for {comp}")
+                    if section == "vars":
+                        self.log.warning(
+                            f"Missing '{section}' section in model report for {comp}"
+                        )
                     continue
+                if debug:
+                    self.log.debug(f"section {section} for {comp.name}")
                 for k, v in performance_section.items():
-                    # serialize pyomo value objects as dicts
-                    if hasattr(v, "value"):
-                        performance[section][k] = {
+                    if section == "vars":
+                        d = {
                             "value": report_quantity(v).m,
                             "units": str(report_quantity(v).u),
                             "fixed": v.fixed,
                             "bounds": v.bounds,
                         }
+                    elif section == "exprs":
+                        d = {
+                            "value": report_quantity(v).m,
+                            "units": str(report_quantity(v).u),
+                        }
+                    elif section == "params":
+                        d = {
+                            "value": report_quantity(v).m,
+                            "units": str(report_quantity(v).u),
+                            "mutable": not v.is_constant(),
+                        }
+                    else:
+                        raise RuntimeError(
+                            f"Internal logic error: bad performance section {section}"
+                        )
+                    performance[section][k] = d
                     # leave other objects alone
             rpt.performance = performance
 
@@ -248,6 +271,8 @@ class UnitModelReport(Action):
         except (AttributeError, ConfigurationError):
             stream_dict = {}
         rpt.stream_table = stream_dict
+
+        self.log.debug("end _get_report()")
 
         return rpt
 

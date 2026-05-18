@@ -49,3 +49,13 @@ def unquiet():
         lg = logging.getLogger(k)
         lg.setLevel(v)
         del g_quiet[k]
+
+
+def init_fi():
+    """Initialize logging for flowsheet inspector"""
+    log = logging.getLogger("idaes_fi")
+    if not log.hasHandlers():
+        h = logging.StreamHandler()
+        fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+        h.setFormatter(fmt)
+        log.addHandler(h)

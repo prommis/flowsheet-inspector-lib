@@ -27,7 +27,8 @@ import os
 
 # package
 from .fsrunner import BaseFlowsheetRunner
-from .common import RESULT_FLOWSHEET_KEY, ActionNames
+from .common import RESULT_FLOWSHEET_KEY, ActionNames, Steps
+from .logutil import init_fi
 
 _log = logging.getLogger(__name__)
 
@@ -49,24 +50,32 @@ class SimpleFlowsheetRunner(BaseFlowsheetRunner):
             MermaidDiagram,
             StreamTable,
             Diagnostics,
+            UnitModelReport,
         )
 
         super().__init__(*args, **kwargs)
         self.main_func = None
         self.main_func_args = []
         self.main_func_kwargs = {}
-        self.add_action(ActionNames.TIMINGS.value, Timer)
-        self.add_action(ActionNames.DOF.value, UnitDofChecker, "fs", ["build"])
+        dof_steps = [Steps.build, Steps.solve_initial, Steps.solve_optimization]
+        # note: put solver_output first so stdout is re-enabled after
+        # solve steps for all other actions
         self.add_action(ActionNames.SOLVER_OUTPUT.value, CaptureSolverOutput)
-        self.add_action(ActionNames.SOLVER_RESULTS.value, GetSolverResults)
-        self.add_action(ActionNames.MODEL_VARIABLES.value, ModelVariables)
-        self.add_action(ActionNames.MERMAID_DIAGRAM.value, MermaidDiagram)
-        self.add_action(ActionNames.STREAM_TABLE.value, StreamTable)
         self.add_action(ActionNames.DIAGNOSTICS.value, Diagnostics)
+        self.add_action(ActionNames.DOF.value, UnitDofChecker, "fs", dof_steps)
+        self.add_action(ActionNames.MERMAID_DIAGRAM.value, MermaidDiagram)
+        self.add_action(ActionNames.MODEL_REPORTS.value, UnitModelReport)
+        self.add_action(ActionNames.MODEL_VARIABLES.value, ModelVariables)
+        self.add_action(ActionNames.SOLVER_RESULTS.value, GetSolverResults)
+        self.add_action(ActionNames.STREAM_TABLE.value, StreamTable)
+        self.add_action(ActionNames.TIMINGS.value, Timer)
 
 
 # Global flowsheet runner, will create as needed
 _FS = SimpleFlowsheetRunner()
+
+# Init logging
+init_fi()
 
 
 class _Wrapper:
