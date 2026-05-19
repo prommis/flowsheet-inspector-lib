@@ -143,7 +143,9 @@ class ReportDB:
         """
         with self._connect() as conn:
             create_cols = self._all_columns(typed=True)
-            conn.execute(f"CREATE TABLE IF NOT EXISTS {self.TABLE} ( {', '.join(create_cols)} );")
+            conn.execute(
+                f"CREATE TABLE IF NOT EXISTS {self.TABLE} ( {', '.join(create_cols)} );"
+            )
 
     def _all_columns(self, typed=False, exclude=None):
         result = []
