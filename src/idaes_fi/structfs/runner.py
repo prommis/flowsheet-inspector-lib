@@ -181,8 +181,9 @@ class Runner:
 
         # set `db` to a new ReportDB instance
         if report_db_path.exists():
-            # if it exists, just open it
+            # if it exists, open it and ensure the table exists
             db = ReportDB(report_db_path)
+            db.create_if_not_exists()
         elif not create:
             raise ValueError(f"Report database not found at path: {report_db_path}")
         else:

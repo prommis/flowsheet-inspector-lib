@@ -136,6 +136,15 @@ class ReportDB:
             create_cols = self._all_columns(typed=True)
             conn.execute(f"CREATE TABLE {self.TABLE} ( {', '.join(create_cols)} );")
 
+    def create_if_not_exists(self):
+        """Create the reports table only if it does not already exist.
+
+        This is safe to call on databases that already have the table.
+        """
+        with self._connect() as conn:
+            create_cols = self._all_columns(typed=True)
+            conn.execute(f"CREATE TABLE IF NOT EXISTS {self.TABLE} ( {', '.join(create_cols)} );")
+
     def _all_columns(self, typed=False, exclude=None):
         result = []
         for nm, ty in self.COLUMNS:
