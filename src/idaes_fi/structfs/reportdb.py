@@ -30,6 +30,13 @@ __author__ = "Dan Gunter (LBNL)"
 _log = logging.getLogger(__name__)
 
 
+class DBError(Exception):
+    """General container for database exceptions"""
+
+    def __init__(self, err: Exception):
+        super().__init__(f"Error in database operation: {err}")
+
+
 class ReportDB:
     """Store and retrieve flowsheet reports in a SQLite database.
 
@@ -119,12 +126,16 @@ class ReportDB:
             if _log.isEnabledFor(logging.DEBUG):
                 _log.debug("Done with SQLite database: {self._filename}")
 
-    def create(self, drop=False):
+    def create(self, drop=False, exist_ok=True) -> "ReportDB":
         """Create the reports table in the database.
 
         Args:
             drop: If ``True``, drop the existing reports table before creating
                 it again.
+            exist_ok: If `True` it is ok if the table exists
+
+        Returns:
+            self, for chaining
 
         Raises:
             sqlite3.Error: If SQLite cannot drop or create the table.
@@ -134,7 +145,11 @@ class ReportDB:
             if drop:
                 conn.execute(f"DROP TABLE {self.TABLE};")
             create_cols = self._all_columns(typed=True)
-            conn.execute(f"CREATE TABLE {self.TABLE} ( {', '.join(create_cols)} );")
+            exists = "IF NOT EXISTS " if exist_ok else ""
+            conn.execute(
+                f"CREATE TABLE {exists}{self.TABLE} ( {', '.join(create_cols)} );"
+            )
+        return self
 
     def _all_columns(self, typed=False, exclude=None):
         result = []
@@ -207,9 +222,13 @@ class ReportDB:
             cur = conn.cursor()
             insert_cols_str = ", ".join(insert_cols)
             stmt = f"INSERT INTO {self.TABLE} ({insert_cols_str}) VALUES ({ph})"
-            cur.execute(stmt, colvalues)
-            # cleanup
-            cur.close()
+            try:
+                cur.execute(stmt, colvalues)
+            except sqlite3.OperationalError as err:
+                raise DBError(err)
+            finally:
+                # cleanup
+                cur.close()
 
     def get_metadata(self, tags: str = "", **target_kw):
         """Yield metadata rows for reports matching the provided filters.
@@ -335,7 +354,10 @@ class ReportDB:
             stmt = f"SELECT MAX(id) FROM {self.TABLE}"
             stmt += self._where(kwargs, tags=tags)
             # run query
-            index = conn.execute(stmt).fetchone()[0]
+            try:
+                index = conn.execute(stmt).fetchone()[0]
+            except sqlite3.OperationalError as err:
+                raise DBError(err)
             # if none, done; else read the report
             if index is None:
                 return None  # RETURN!

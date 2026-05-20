@@ -52,6 +52,7 @@ from .common import (
     find_flowsheet_objects,
     Steps,
 )
+from .reportdb import DBError
 from .. import gitutil
 
 _log = logging.getLogger(__name__)
@@ -424,7 +425,11 @@ def run_flowsheet(
         if step_kw is None:
             step_kw = {}
         if report_db_file is not None:
-            fs.set_report_db(dbfile=report_db_file)
+            try:
+                fs.set_report_db(dbfile=report_db_file)
+            except Exception as err:
+                print(f"@@ {err}")
+                sys.exit(-1)
         fs.run_steps(**step_kw)
     else:
         func = _find_wrapped_main(mod)
@@ -561,17 +566,22 @@ def main(args=None):
     # unless the user requests, print solver output
     # (that we captured to the DB)
     if not args.quiet:
-        rpt = fs.get_report_db().get_last_report()
-        solver_out_steps = rpt["actions"][ActionNames.SOLVER_OUTPUT.value]["output"]
-        for step_name, output in solver_out_steps.items():
-            o = output.strip()
-            if not o:
-                continue
-            s = f"Solve, step={step_name}"
-            n = len(s) + 2
-            div = "+" + "=" * n + "+"
-            print(f"\n{div}\n| {s} |\n{div}\n")
-            print(o)
+        try:
+            rpt = fs.get_report_db().get_last_report()
+        except DBError as err:
+            print(f"ERROR: {err}")
+            return 3
+        if rpt:
+            solver_out_steps = rpt["actions"][ActionNames.SOLVER_OUTPUT.value]["output"]
+            for step_name, output in solver_out_steps.items():
+                o = output.strip()
+                if not o:
+                    continue
+                s = f"Solve, step={step_name}"
+                n = len(s) + 2
+                div = "+" + "=" * n + "+"
+                print(f"\n{div}\n| {s} |\n{div}\n")
+                print(o)
 
     return 0
 

@@ -31,7 +31,7 @@ from pydantic import BaseModel
 # package
 from idaes.config import get_data_directory
 from .action_base import Action
-from .reportdb import ReportDB
+from .reportdb import ReportDB, DBError
 from .common import ActionNames, Steps
 from .. import gitutil
 
@@ -121,6 +121,9 @@ class Runner:
     ) -> ReportDB:
         """Set a new value for the report database.
 
+        If the database in `dbfile` exists, the required tables
+        will be added if they do not already exist.
+
         Args:
             db: New report database
             dbfile: Path to reportdb file.
@@ -139,16 +142,11 @@ class Runner:
             # get a ReportDB instance, creating DB if necessary and allowed
             do_create = False
             dbfile = Path(dbfile)
-            if not dbfile.exists():
-                if create:
-                    do_create = True
-                else:
-                    raise ValueError(
-                        f"Database file `{dbfile}` does not exist and `create` flag is False"
-                    )
-            db = ReportDB(dbfile)
-            if do_create:
-                db.create()
+            if not dbfile.exists() and not create:
+                raise ValueError(
+                    f"Database file `{dbfile}` does not exist and `create` flag is False"
+                )
+            db = ReportDB(dbfile).create(exist_ok=True)
 
         assert isinstance(db, ReportDB)
         prev, self._report_db = self._report_db, db
@@ -305,7 +303,10 @@ class Runner:
         )
         self._run_steps(*args)
         if save_report:
-            self._save_report()
+            try:
+                self._save_report()
+            except DBError as err:
+                _log.error(str(err))
 
     def _run_steps(
         self, first: str, last: str, endpoints: tuple[bool, bool], closest: bool
