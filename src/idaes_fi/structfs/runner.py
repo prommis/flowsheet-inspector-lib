@@ -134,6 +134,7 @@ class Runner:
 
         Raises:
             ValueError: If neither argument is provided
+            DBError: If database is corrupt or cannot be created
         """
         if db is None:
             # Get ReportDB from path
@@ -154,6 +155,8 @@ class Runner:
         prev_tgt = prev.get_target()
         if prev_tgt:
             self._report_db.set_target(**prev_tgt)
+
+        db.test_connection()
 
         return prev
 

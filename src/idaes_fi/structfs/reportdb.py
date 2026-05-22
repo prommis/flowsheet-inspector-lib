@@ -53,6 +53,11 @@ class ReportDB:
             column.
     """
 
+    # for DB versioning
+    MAJOR_VERSION = 1
+    MINOR_VERSION = 0
+    VERSION_TABLE = "version"
+
     TABLE = "reports"
     TARGET_COLUMNS = (
         ("name", "TEXT"),
@@ -126,9 +131,51 @@ class ReportDB:
             if _log.isEnabledFor(logging.DEBUG):
                 _log.debug("Done with SQLite database: {self._filename}")
 
-    def test_connection(self):
+    def test_connection(self) -> None:
+        """Test database connection.
+
+        This method will raise an exception of the DB connection
+        is not valid.
+
+        Raises:
+            DBError: If the database is unavailable or invalid
+        """
         with self._connect() as conn:
-            pass
+            is_compatible, reason = self._check_compatible_version(conn)
+        if not is_compatible:
+            raise DBError(f"Database is not valid: {reason}")
+
+    def _check_compatible_version(self, conn: sqlite3.Connection) -> tuple[bool, str]:
+        major_version, minor_version = self._get_version(conn)
+        # major versions must match
+        if major_version != self.MAJOR_VERSION:
+            return (
+                False,
+                f"Major version of database ({major_version}) != "
+                f"major version of code ({self.MAJOR_VERSION})",
+            )
+        # minor versions do not have to match, but we may need to compensate
+        if minor_version != self.MINOR_VERSION:
+            _log.warning(
+                f"Minor version in database ({minor_version}) "
+                f"!= minor version of code ({self.MINOR_VERSION})"
+            )
+        return True, ""
+
+    def _get_version(self, conn: sqlite3.Connection) -> tuple[int, int]:
+        # get version in database
+        query = f"SELECT * FROM {self.VERSION_TABLE}"
+        try:
+            # query the database using conn
+            cursor = conn.execute(query)
+        except sqlite3.OperationalError as err:
+            raise DBError("Cannot get schema version: {err}")
+        # get version data from results
+        try:
+            major_version, minor_version = cursor.fetchone()
+        except sqlite3.OperationalError as err:
+            raise DBError(f"Empty version table ({self.VERSION_TABLE})")
+        return major_version, minor_version
 
     def create(self, drop=False, exist_ok=True) -> "ReportDB":
         """Create the reports table in the database.
@@ -146,12 +193,23 @@ class ReportDB:
         """
         _log.info("Create reports table")
         with self._connect() as conn:
+            # create new report table
             if drop:
-                conn.execute(f"DROP TABLE {self.TABLE};")
+                conn.execute(f"DROP TABLE IF EXISTS {self.TABLE};")
             create_cols = self._all_columns(typed=True)
             exists = "IF NOT EXISTS " if exist_ok else ""
             conn.execute(
                 f"CREATE TABLE {exists}{self.TABLE} ( {', '.join(create_cols)} );"
+            )
+            # create new version table (always drop old)
+            conn.execute(f"DROP TABLE IF EXISTS {self.VERSION_TABLE};")
+            conn.execute(
+                f"CREATE TABLE {self.VERSION_TABLE} (major integer, minor integer);"
+            )
+            # set current code version into table
+            conn.execute(
+                f"INSERT INTO {self.VERSION_TABLE} VALUES "
+                f"({self.MAJOR_VERSION}, {self.MINOR_VERSION});"
             )
         return self
 
