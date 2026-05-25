@@ -149,14 +149,17 @@ class Runner:
                 )
             db = ReportDB(dbfile).create(exist_ok=True)
 
+        # first, test that DB is valid
         assert isinstance(db, ReportDB)
+        db.test_connection()
+
+        # then, swap out any previous value for new db
         prev, self._report_db = self._report_db, db
 
+        # if there was a previous one, copy its metadata
         prev_tgt = prev.get_target()
         if prev_tgt:
             self._report_db.set_target(**prev_tgt)
-
-        db.test_connection()
 
         return prev
 
