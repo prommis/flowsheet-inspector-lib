@@ -129,13 +129,14 @@ class ReportDB:
         finally:
             conn.close()
             if _log.isEnabledFor(logging.DEBUG):
-                _log.debug("Done with SQLite database: {self._filename}")
+                _log.debug("Closed connection to SQLite database: {self._filename}")
 
     def test_connection(self) -> None:
         """Test database connection.
 
         This method will raise an exception of the DB connection
-        is not valid.
+        is not valid, which includes a check of the version of the
+        DB schema vs. the version of the code.
 
         Raises:
             DBError: If the database is unavailable or invalid
