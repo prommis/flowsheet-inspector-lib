@@ -52,6 +52,7 @@ from .common import (
     find_flowsheet_objects,
     Steps,
 )
+from .reportdb import DBError
 from .. import gitutil
 
 _log = logging.getLogger(__name__)
@@ -384,6 +385,7 @@ def run_flowsheet(
     fs_attr: str = "",
     step_kw: dict[str, str] = None,
     report_db_file: str = None,
+    test_db: bool = True,
     **kwargs,
 ) -> BaseFlowsheetRunner:
     """Run structfs-wrapper flowsheet found in a file or module.
@@ -394,6 +396,7 @@ def run_flowsheet(
                  If not given use the first one found, otherwise require a match.
         step_kw: Keywords sent to the `run_steps()` function, if applicable
         report_db_file: If given, set the report DB to this file
+        test_db: If True, test the DB connection before running the flowsheet
         kwargs: Additional keyword arguments passed to fi_main, if applicable
 
     Returns:
@@ -425,6 +428,10 @@ def run_flowsheet(
             step_kw = {}
         if report_db_file is not None:
             fs.set_report_db(dbfile=report_db_file)
+        # pre-flight check for database
+        if test_db:
+            fs.test_db_connection()
+        # now run
         fs.run_steps(**step_kw)
     else:
         func = _find_wrapped_main(mod)
@@ -494,6 +501,13 @@ def main(args=None):
         default=None,
     )
     ap.add_argument(
+        "--skip-db-test",
+        action="store_true",
+        help="Skip the check of the result database before running. "
+        "This risks losing the results after the run completes.",
+        default=False,
+    )
+    ap.add_argument(
         "--attr",
         default=None,
         help="Name of attribute in file/module "
@@ -550,28 +564,38 @@ def main(args=None):
         log.debug(f"Writing report to default file: {default_report_file}")
 
     try:
-        fs = run_flowsheet(args.name, report_db_file=args.db, **kwargs)
+        fs = run_flowsheet(
+            args.name, report_db_file=args.db, test_db=(not args.skip_db_test), **kwargs
+        )
     except ValueError as err:
         print(f"ERROR: {err}")
         return 1
     except ModuleNotFoundError as err:
         print(f"ERROR loading flowsheet module: {err}")
         return 2
+    except DBError as err:
+        print(f"ERROR opening/loading database: {err}")
+        return 3
 
     # unless the user requests, print solver output
     # (that we captured to the DB)
     if not args.quiet:
-        rpt = fs.get_report_db().get_last_report()
-        solver_out_steps = rpt["actions"][ActionNames.SOLVER_OUTPUT.value]["output"]
-        for step_name, output in solver_out_steps.items():
-            o = output.strip()
-            if not o:
-                continue
-            s = f"Solve, step={step_name}"
-            n = len(s) + 2
-            div = "+" + "=" * n + "+"
-            print(f"\n{div}\n| {s} |\n{div}\n")
-            print(o)
+        try:
+            rpt = fs.get_report_db().get_last_report()
+        except DBError as err:
+            print(f"ERROR: {err}")
+            return 4
+        if rpt:
+            solver_out_steps = rpt["actions"][ActionNames.SOLVER_OUTPUT.value]["output"]
+            for step_name, output in solver_out_steps.items():
+                o = output.strip()
+                if not o:
+                    continue
+                s = f"Solve, step={step_name}"
+                n = len(s) + 2
+                div = "+" + "=" * n + "+"
+                print(f"\n{div}\n| {s} |\n{div}\n")
+                print(o)
 
     return 0
 

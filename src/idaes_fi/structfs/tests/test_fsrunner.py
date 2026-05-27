@@ -15,7 +15,9 @@
 # publicly and display publicly, and to permit other to do so.
 #
 #################################################################################
+import os
 from pathlib import Path
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -344,6 +346,9 @@ class DummyFlowsheet:
     def run_steps(self, **step_kw):
         self.run_steps_calls.append(step_kw)
 
+    def test_db_connection(self):
+        return True
+
 
 @pytest.fixture
 def fake_module_loader(monkeypatch):
@@ -498,6 +503,13 @@ def test_run_flowsheet_module_target():
             False,
             False,
         ),
+        # demo + specific last step
+        (
+            ["idaes_fi.structfs.tests.demo_flowsheet_structured"],
+            {"last": Steps.solve_initial},
+            True,
+            False,
+        ),
     ],
 )
 def test_fsrunner_main(args, opts, ok, bad, tmp_path):
@@ -518,6 +530,57 @@ def test_fsrunner_main(args, opts, ok, bad, tmp_path):
             assert retcode == 0
         else:
             assert retcode != 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "args,opts,mischief,ok",
+    [
+        (["idaes_fi.structfs.tests.demo_flowsheet_structured"], {}, "chmod", False),
+        (["idaes_fi.structfs.tests.demo_flowsheet_structured"], {}, "bad_table", False),
+        (
+            ["idaes_fi.structfs.tests.demo_flowsheet_structured"],
+            {"skip-db-test": True},
+            "chmod",
+            False,
+        ),
+        (["idaes_fi.structfs.tests.demo_flowsheet_structured"], {}, "bad_table", False),
+        (["idaes_fi.structfs.tests.demo_flowsheet_structured"], {}, "no_table", True),
+    ],
+)
+def test_fsrunner_main_db(args, opts, mischief, ok, tmp_path, capsys):
+    db_file = tmp_path / "test_fsrunner_main_db.db"
+    cmd = args.copy()
+    for k, v in opts.items():
+        cmd.append(f"--{k}")
+        if v is not True:
+            cmd.append(f"{v}")
+    cmd.append("--db")
+    cmd.append(str(db_file))
+    print(f"Run command: {cmd}")
+    if mischief == "chmod":
+        db_file.open("w")  # create file
+        os.chmod(db_file, 0o000)  # make it unwritable
+        expect_out, expect_err = "unable to open database file", None
+    elif mischief == "bad_table":
+        sdb = sqlite3.connect(db_file)
+        sdb.execute("CREATE TABLE reports (foo varchar);")
+        sdb.commit()
+        expect_out, expect_err = "no such column", None
+    elif mischief == "no_table":
+        # create empty database
+        sdb = sqlite3.connect(db_file)
+    else:
+        raise RuntimeError(f"Internal error: unknown action '{mischief}'")
+    retcode = fsrunner.main(cmd)
+    captured = capsys.readouterr()
+    if ok:
+        assert retcode == 0
+    else:
+        assert retcode != 0
+        for s, strm in ((expect_out, captured.out), (expect_err, captured.err)):
+            if s is not None:
+                assert s in strm
 
 
 def test_fsrunner_main_no_default_report_db(monkeypatch, capsys):

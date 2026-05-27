@@ -36,23 +36,22 @@ steps to run ("up to" a given step).
 
 ```{code} text
 $ fi-run -h
-usage: fi-run [-h] [--db DB] [--attr ATTR] [--last LAST] [-q] [-v] name
+usage: fi-run [-h] [--db DB] [--skip-db-test] [--attr ATTR] [--last LAST] [-q] [-v] name
 
 Run a flowsheet from the command-line.
 
 positional arguments:
-  name         Flowsheet file name or module name
+  name            Flowsheet file name or module name
 
 options:
-  -h, --help   show this help message and exit
-  --db, -D DB  Alternate SQLite database file for results (default=~/home/dang/.idaes/reportdb.sqlite)
-  --attr ATTR  Name of attribute in file/module containing structured flowsheet (e.g., 'FS'). This is only needed
-               if there is more than one.
-  --last LAST  Name of last step to run. Steps (in order): build, set_solver, initialize,
-               set_operating_conditions, set_scaling, solve_initial, set_autoscaling, add_costing,
-               initialize_costing, setup_optimization, solve_optimization
-  -q, --quiet  Don't print extra info
-  -v           increase verbosity
+  -h, --help      show this help message and exit
+  --db, -D DB     Alternate SQLite database file for results (default=/home/dang/.idaes/reportdb.sqlite)
+  --skip-db-test  Skip the check of the result database before running. This risks losing the results after the run completes.
+  --attr ATTR     Name of attribute in file/module containing structured flowsheet (e.g., 'FS'). This is only needed if there is more than one.
+  --last LAST     Name of last step to run. Steps (in order): build, set_solver, initialize, set_operating_conditions, set_scaling, solve_initial, set_autoscaling, add_costing, initialize_costing, setup_optimization, solve_optimization
+  -q, --quiet     Don't print extra info
+  -v              increase verbosity
+                                        
 ```
 
 ### fi-run examples
