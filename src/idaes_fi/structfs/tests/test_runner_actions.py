@@ -42,6 +42,7 @@ from . import flash_flowsheet
 def set_tmp_db(tmp_path):
     dbpath = tmp_path / "test_runner_actions.db"
     flash_flowsheet.FS.set_report_db(dbfile=dbpath)
+    print(f"setting temp db = {dbpath}")
     return dbpath
 
 
