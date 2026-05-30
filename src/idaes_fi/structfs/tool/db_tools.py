@@ -21,12 +21,18 @@ implemented by module `idaes_fi.structfs.reportdb`.
 """
 
 import argparse
-from dataclasses import dataclass
+import dataclasses
+from dataclasses import dataclass, field
+import datetime
 from io import IOBase
 import logging
 from pathlib import Path
+import re
+import sqlite3
 import sys
 import time
+
+import pandas as pd
 
 from idaes_fi.structfs.reportdb import ReportDB, DBError
 from idaes_fi.structfs.runner import Runner
@@ -92,8 +98,116 @@ def _info_print(info: Info, stream: IOBase = sys.stdout):
     )
 
 
-def _report_command(args):
-    print("Not yet implemented")
+@dataclass
+class SearchSpec:
+    """Search specification"""
+
+    time_min: str = field(
+        default="", metadata={"doc": "Beginning of time range (YYY-MM-DD [hh:mm:ss])"}
+    )
+    time_max: str = field(
+        default="", metadata={"doc": "End of time range (YYY-MM-DD [hh:mm:ss])"}
+    )
+    name_re: str = field(
+        default="", metadata={"doc": "Name to match against (regular expression)"}
+    )
+    name_fixed: str = field(
+        default="", metadata={"doc": "Name to match against (fixed string)"}
+    )
+    tags: str = field(default="", metadata={"doc": "Space-separated tags to match"})
+    limit: int = field(
+        default=100, metadata={"doc": "Maximum number of records to return"}
+    )
+
+    @classmethod
+    def fields(cls) -> list[str]:
+        return [(f.name, f.type, f.metadata["doc"]) for f in dataclasses.fields(cls)]
+
+
+def _view_command(args):
+    dbfile = args.db
+    if dbfile is None:
+        db = Runner.get_default_report_db()
+    else:
+        db = ReportDB(dbfile)
+
+    clauses = ["created >= ?", "created <= ?"]
+    params = []
+    if args.time_min:
+        try:
+            params.append(_parse_time(args.time_min))
+        except ValueError as err:
+            raise CommandError(
+                "view", f"Bad time_min (expected ISO format time): {args.time_min}"
+            )
+    else:
+        params.append(0.0)
+    if args.time_max:
+        try:
+            params.append(_parse_time(args.time_max))
+        except ValueError as err:
+            raise CommandError(
+                "view", f"Bad time_max (expected ISO format time): {args.time_max}"
+            )
+    else:
+        params.append(9e9)
+    if args.name_fixed:
+        clauses.append("name = ?")
+        params.append(args.name_fixed)
+    name_pattern = None
+    if args.name_re:
+        try:
+            name_pattern = re.compile(args.name_re)
+        except re.error as err:
+            raise CommandError("report", err)
+        clauses.append("name REGEXP ?")
+        params.append(args.name_re)
+    if args.tags:
+        tag_items = [t.lower() for t in args.tags.split()]
+        tag_items.sort()
+        clauses.append("tags LIKE ?")
+        params.append("%" + "%".join(tag_items) + "%")
+    limit = args.limit if args.limit is not None else SearchSpec.limit
+
+    columns = [c[0] for c in ReportDB.COLUMNS if c[0] not in ("report", "hash")]
+    columns_cs = ",".join(columns)
+    query = f"SELECT {columns_cs} FROM {db.TABLE} WHERE {' AND '.join(clauses)}"
+    query += " ORDER BY id ASC LIMIT ?"
+    params.append(limit)
+    _applog.debug(f"report query: {query} params={params}")
+
+    def regexp(pattern, value):
+        return value is not None and name_pattern.search(value) is not None
+
+    rows = []
+    try:
+        with db._connect() as conn:
+            conn.create_function("REGEXP", 2, regexp)
+            for row in conn.execute(query, params):
+                row_dict = {}
+                filedir, filename = None, None
+                for i, item in enumerate(row):
+                    col = columns[i]
+                    if col == "created":
+                        item = _time_string(item)
+                    elif col == "filedir":
+                        filedir = item
+                        continue
+                    elif col == "filename":
+                        filename = item
+                        continue
+                    row_dict[col] = item
+                row_dict["file"] = str(Path(filedir) / filename)
+                rows.append(row_dict)
+    except (DBError, sqlite3.Error) as err:
+        raise CommandError("report", err)
+    if rows:
+        df = pd.DataFrame(rows)
+        _view_print(sys.stdout, df)
+
+
+def _view_print(stream: IOBase, df: pd.DataFrame):
+    stream.write(df.to_string(header=True, index=False))
 
 
 # utility functions
@@ -109,21 +223,39 @@ def _print_aligned(stream: IOBase, kvp: dict[str, str], sep=":"):
         stream.write(f"{key}{spc} {sep} {value}\n")
 
 
+def _time_string(t: float) -> str:
+    dt = datetime.datetime.fromtimestamp(t)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _parse_time(t: str) -> float:
+    parsed = datetime.datetime.fromisoformat(t)
+    print(f"@@ {t} => {parsed}")
+    return parsed.timestamp()
+
+
 # CLI
 # ---
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # add info subcommand
+    # info subcommand
     p = subparsers.add_parser("info", help="Show report database information")
     _add_parser_common(p)
     p.set_defaults(func=_info_command)
 
-    # add dump subcommand
-    p = subparsers.add_parser("report", help="Get a report from the database")
+    # view subcommand
+    p = subparsers.add_parser("view", help="View records in the database")
     _add_parser_common(p)
-    p.set_defaults(func=_report_command)
+    for name, type_, doc in SearchSpec.fields():
+        p.add_argument(
+            f"--{name}",
+            help=f"Search: {doc} ({type_.__name__})",
+            type=type_,
+            metavar="VALUE",
+        )
+    p.set_defaults(func=_view_command)
 
     return parser
 
