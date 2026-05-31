@@ -188,8 +188,10 @@ def _view_command(args):
                 filedir, filename = None, None
                 for i, item in enumerate(row):
                     col = columns[i]
+                    # convert created timestamp to date string
                     if col == "created":
                         item = _time_string(item)
+                    # pick out filedir/filename to be added later
                     elif col == "filedir":
                         filedir = item
                         continue
@@ -197,10 +199,13 @@ def _view_command(args):
                         filename = item
                         continue
                     row_dict[col] = item
+                # add combined filedir/filename as 'file'
                 row_dict["file"] = str(Path(filedir) / filename)
+                # done; add row
                 rows.append(row_dict)
     except (DBError, sqlite3.Error) as err:
         raise CommandError("report", err)
+    # if any results at all, print as a table
     if rows:
         df = pd.DataFrame(rows)
         _view_print(sys.stdout, df)
