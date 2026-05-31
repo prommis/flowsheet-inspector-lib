@@ -91,6 +91,16 @@ class ReportDB:
         """Get current report filename."""
         return self._filename
 
+    @property
+    def version(self) -> tuple[int, int]:
+        """Get major and minor version numbers
+
+        Returns:
+           major_version (int), minor_version (int)
+        """
+        with self._connect() as conn:
+            return self._get_version(conn)
+
     def set_target(self, **kw):
         """Set default target metadata for future queries and inserts.
 
@@ -170,7 +180,7 @@ class ReportDB:
             # query the database using conn
             cursor = conn.execute(query)
         except sqlite3.OperationalError as err:
-            raise DBError("Cannot get schema version: {err}")
+            raise DBError(f"Cannot get schema version: {err}")
         # get version data from results
         try:
             major_version, minor_version = cursor.fetchone()
