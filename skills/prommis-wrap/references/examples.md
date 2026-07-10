@@ -19,7 +19,15 @@ Confirm to proceed?"
 
 User: "yes"
 
-AI: "Wrapping build_model — here is the complete wrapped function:
+AI: "What would you like to name the wrapped file? Default is
+flash_flowsheet_wrapped.py"
+
+User: "flash_flowsheet_wrapped.py"
+
+AI: "Creating flowsheet/flash_flowsheet_wrapped.py. I will show one item
+at a time and only write each item after you confirm it.
+
+Wrapping build_model — here is the complete wrapped function:
 [shows just build_model wrapped]
 Does this look right? Confirm to continue to set_operating_conditions."
 
@@ -38,12 +46,7 @@ AI: "All items wrapped and confirmed. Running diff check:
 - imports correct ✓
 - context handling correct ✓
 - step names all valid ✓
-- steps= ordering present and correct ✓
-
-What would you like to name the wrapped file? Default is
-flash_flowsheet_wrapped.py"
-
-User: "flash_flowsheet_wrapped.py"
+- steps= ordering present and correct ✓"
 
 AI: "Written to flowsheet/flash_flowsheet_wrapped.py.
 Activate idaes-fi before running it:
@@ -146,9 +149,9 @@ from idaes_fi.structfs.fsrunner import FlowsheetRunner, Context
 FS = FlowsheetRunner(
     steps=(
         "build",
+        "set_solver",
         "set_operating_conditions",
         "initialize",
-        "set_solver",
         "solve_initial",
     )
 )

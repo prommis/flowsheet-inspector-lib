@@ -11,7 +11,7 @@ metadata:
 
 This skill runs a PrOMMiS flowsheet, checks for issues, explains
 what is wrong in plain English, and guides through fixing issues
-one at a time. The user only needs to say yes or no — Codex
+one at a time. The user only needs to say yes or no — the agent
 handles everything else. Only fixes that can be made directly
 in the flowsheet file will be attempted — anything else will
 be explained and handed back to the user.
@@ -35,7 +35,7 @@ whether it succeeded or failed.
 **WARNING vs CAUTION** — WARNINGs must be fixed. CAUTIONs are
 worth checking but may not stop the flowsheet from running.
 
-**Flowsheet file** — the only file Codex will edit. Fixes that
+**Flowsheet file** — the only file the agent will edit. Fixes that
 require changes to property packages, IDAES source code, or
 configuration files cannot be made automatically.
 
@@ -56,18 +56,17 @@ They can read Python and understand their flowsheet variables
 but they cannot interpret solver or diagnostics output on their
 own. That is exactly why this skill exists.
 
-When explaining anything:
-- never use IPOPT, solver, optimizer, or any related terms —
-  say "the flowsheet" instead
-- never use DiagnosticsToolbox method names in explanations —
-  only in the "Can I run..." question
-- never use optimization or numerical methods terminology
+When explaining anything to the user:
+- use IPOPT, solver, optimizer, DiagnosticsToolbox, and method names
+  internally when running checks
+- do not use those terms in plain-English explanations unless quoting
+  raw output or asking permission to run a specific method
+- translate solver and diagnostics terminology into code-focused
+  language for the user
 - think like a coder explaining to another coder — focus on
   variables, values, and what needs to change in the code
-- never explain in chemical engineering terms — the user does
-  not think that way
-- always be short and direct — the user does not want to read
-  long explanations
+- avoid chemical-engineering explanations unless the user asks for them
+- always be short and direct
 
 ## Explanation Style
 

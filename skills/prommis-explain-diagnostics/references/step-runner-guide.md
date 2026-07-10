@@ -35,10 +35,10 @@ EXIT message translations:
 - "EXIT: Converged to a point of local infeasibility. Problem may be infeasible."
   What this means: The flowsheet did not solve.
 - "EXIT: Maximum Number of Iterations Exceeded"
-  What this means: The solver ran out of attempts before finding
+  What this means: The run ran out of attempts before finding
   a solution. Try fixing scaling issues first.
 - "EXIT: Restoration Failed"
-  What this means: The solver failed badly. Check for model
+  What this means: The run failed badly. Check for model
   setup issues first.
 - "EXIT: Error in AMPL Evaluation"
   What this means: A calculation failed — likely dividing by
@@ -80,14 +80,14 @@ WARNING translations:
   What this means: The model has too many or too few fixed values.
 - "X variable(s) with extreme values"
   What this means: Some variables have very large or very small
-  values that confuse the solver.
+  values that make the run unstable.
 - "Unit consistency"
   What this means: Two quantities with different units are being
   added or compared — like adding temperature to pressure.
 
 ## Never Fix Outside the Flowsheet File
 
-Codex can only edit the flowsheet file the user provided.
+The agent should only edit the flowsheet file the user provided.
 Before attempting any fix, always check: can this be fixed by
 editing the flowsheet file?
 
@@ -118,7 +118,7 @@ Then give the final summary.
 
 ## Running Suggested Next Steps
 
-When Codex suggests a next step like dt.display_overconstrained_set():
+When the agent suggests a next step like dt.display_overconstrained_set():
 - ask "Can I run [method name] to get more details?"
 - STOP and wait for user response
 - if yes: run it silently, show only the relevant output lines

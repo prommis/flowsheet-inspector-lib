@@ -86,7 +86,7 @@ a missing unit conversion or wrong property package.
 ### Variable at or outside bounds
 
 What it means: a variable has hit or exceeded its bound. The most
-common cause of infeasibility. IPOPT cannot move past a bound.
+common cause of a failed run. The calculation cannot move past a bound.
 
 How to find it — verify method name exists before suggesting:
 
@@ -121,7 +121,7 @@ first — usually a variable outside its bounds or a scaling issue.
 ### Variable with extreme value
 
 What it means: a variable has a very large or very small value like
-1e10 or 1e-10. Causes numerical precision problems for IPOPT.
+1e10 or 1e-10. Causes numerical precision problems during the run.
 
 How to find it — verify method name exists before suggesting:
 
@@ -135,7 +135,7 @@ How to fix: set a scaling factor for that variable:
 ### Near parallel constraints
 
 What it means: two constraints are nearly identical — one is
-redundant. Causes degeneracy which makes IPOPT struggle.
+redundant. Causes degeneracy, which can make the run struggle.
 
 How to find it — verify method name exists before suggesting:
 
@@ -146,7 +146,7 @@ How to fix: deactivate one of the redundant constraints.
 ## Degeneracy
 
 Degeneracy means one or more constraints are redundant. Signs:
-- IPOPT takes many more iterations than expected
+- the run takes many more iterations than expected
 - ls column in IPOPT log consistently greater than 1
 - SVD analysis shows near-zero singular values
 

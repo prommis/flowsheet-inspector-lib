@@ -15,7 +15,7 @@ Use this helper when an agent needs one of two discovery strategies:
 
 - `my_skills_path`: optional user-managed skills root. Repeat if more than one user root is needed.
 
-The helper resolves the central catalog in this order: the `--central-root` flag, then the `SKILL_SEARCH_CENTRAL_ROOT` environment variable, then a sibling `../skills` directory. To make this skill expose the Genesis catalog, symlink `skill-search/` into your agent's skills dir and (if it isn't beside `skills/`) point one of those at the catalog. The alternative — flattening every skill into your skills dir for native `/<name>` discovery — is handled by the repo's `unpack.sh` (`./unpack.sh --help`).
+The helper resolves the central catalog in this order: the `--central-root` flag, then the `SKILL_SEARCH_CENTRAL_ROOT` environment variable, then a sibling `../skills` directory. To make this skill expose this repository's PrOMMiS skills catalog, expose `skill-search/` through the agent's skills directory and point the helper at the top-level `skills/` catalog when needed. The alternative — flattening every skill into your skills dir for native `/<name>` discovery — is handled by the repo's `unpack.sh` (`./unpack.sh --help`).
 
 ## Skill search
 

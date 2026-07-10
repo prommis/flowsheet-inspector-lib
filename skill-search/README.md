@@ -2,7 +2,7 @@
 
 `skill-search` is a self-contained, path-based helper for working with a central skills catalog plus optional user-provided skill roots.
 
-It is designed for the DOE-style deployment shape where a helper directory sits next to a centrally maintained `skills/` directory:
+It is designed for repositories where a helper directory sits next to a centrally maintained `skills/` directory:
 
 ```text
 deploy-root/
@@ -49,8 +49,8 @@ With explicit roots:
 
 ```bash
 python scripts/skill_search.py \
-  --central-root /opt/doe/skills \
-  --my-skills-path ~/my-team-skills \
+  --central-root ../skills \
+  --my-skills-path ~/my-skills \
   --load-all \
   --include-prompt
 ```
@@ -58,16 +58,16 @@ python scripts/skill_search.py \
 ### Iterative Search
 
 ```bash
-python scripts/skill_search.py --query "write a hello world file"
+python scripts/skill_search.py --query "wrap methanol_flowsheet.py"
 ```
 
 With explicit roots:
 
 ```bash
 python scripts/skill_search.py \
-  --central-root /opt/doe/skills \
-  --my-skills-path ~/my-team-skills \
-  --query "extract text from a pdf" \
+  --central-root ../skills \
+  --my-skills-path ~/my-skills \
+  --query "how do I import FlowsheetBlock" \
   --top-k 5
 ```
 
@@ -97,7 +97,7 @@ Search mode returns:
 
 ## As A Skill
 
-This directory includes `SKILL.md` so filesystem-based agents can treat it as a skill wrapper and follow the documented workflow there. To expose the Genesis catalog through it, symlink `skill-search/` into your agent's skills dir; for native `/<name>` discovery of each skill instead, use the repo's `unpack.sh` (`./unpack.sh --help`).
+This directory includes `SKILL.md` so filesystem-based agents can treat it as a skill wrapper and follow the documented workflow there. To expose this repository's PrOMMiS skills catalog through it, expose `skill-search/` through the agent's skills directory and point the helper at the top-level `skills/` catalog when needed. For native `/<name>` discovery of each skill instead, use the repo's `unpack.sh` (`./unpack.sh --help`).
 
 The importable Python package lives under `skill-search/skill_search/` so the outer directory can keep the validator-friendly hyphenated name.
 

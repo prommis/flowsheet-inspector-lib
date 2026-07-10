@@ -11,7 +11,7 @@ Examples:
     python get_imports.py FlowsheetBlock
     python get_imports.py ConcreteModel
 
-This script is designed to be run by Codex directly in the
+This script is designed to be run by an agent directly in the
 appropriate conda environment. It does not ask the user to
 run anything manually.
 """

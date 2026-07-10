@@ -46,6 +46,10 @@ running `scripts/get_imports.py` directly against the locally
 installed packages. This means the results always reflect the
 user's actual installed version.
 
+Resolve `scripts/get_imports.py` relative to the directory that
+contains this `SKILL.md`. From the repository root, that path is
+`skills/prommis-help-imports/scripts/get_imports.py`.
+
 ## Stage 1 — Gather Context
 
 Always announce: "Stage 1 — finding import for [class name]."
@@ -85,14 +89,14 @@ warnings, or errors. Only surface the final matched import paths.
 **If a file was named in stage 1:**
 Run the script in the environment determined from the file's imports:
 ```bash
-conda run -n [environment] python prommis-help-imports/scripts/get_imports.py <class_name>
+conda run -n [environment] python <path-to-this-skill>/scripts/get_imports.py <class_name>
 ```
 
 **If no file was named:**
 Run the script in both environments:
 ```bash
-conda run -n idaes-fi python prommis-help-imports/scripts/get_imports.py <class_name>
-conda run -n prommis-dev python prommis-help-imports/scripts/get_imports.py <class_name>
+conda run -n idaes-fi python <path-to-this-skill>/scripts/get_imports.py <class_name>
+conda run -n prommis-dev python <path-to-this-skill>/scripts/get_imports.py <class_name>
 ```
 
 Combine all unique matches from both runs.
@@ -312,8 +316,9 @@ Anaconda is installed and conda is in your PATH."
 If the script file is not found:
 tell the user:
 "The search script was not found at
-prommis-help-imports/scripts/get_imports.py.
-Make sure you are running from the prommis-skills directory."
+<path-to-this-skill>/scripts/get_imports.py.
+Resolve <path-to-this-skill> from the directory that contains this
+SKILL.md."
 
 ## Example Conversations
 

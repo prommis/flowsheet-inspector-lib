@@ -1,0 +1,29 @@
+﻿[
+    {
+        "id":  "wrap_methanol_flowsheet",
+        "skill":  "prommis-wrap",
+        "prompt":  "wrap methanol_flowsheet.py in a new file called methanol_flowsheet_w3.py",
+        "fixture":  "prommis-wrap/methanol",
+        "input_file":  "methanol_flowsheet.py",
+        "output_file":  "methanol_flowsheet_w3.py",
+        "validator":  "validate_prommis_wrap.py"
+    },
+    {
+        "id":  "change_methanol_conversion",
+        "skill":  "prommis-change-value",
+        "prompt":  "change the reactor conversion in methanol_flowsheet.py from 0.75 to 0.80",
+        "fixture":  "prommis-wrap/methanol",
+        "input_file":  "methanol_flowsheet.py",
+        "output_file":  "methanol_flowsheet.py",
+        "validator":  "validate_prommis_change_value.py"
+    },
+    {
+        "id":  "add_flowsheetblock_import",
+        "skill":  "prommis-help-imports",
+        "prompt":  "add the correct import for FlowsheetBlock in missing_imports.py",
+        "fixture":  "prommis-help-imports/missing_flowsheetblock_import",
+        "input_file":  "missing_imports.py",
+        "output_file":  "missing_imports.py",
+        "validator":  "validate_prommis_help_imports.py"
+    }
+]

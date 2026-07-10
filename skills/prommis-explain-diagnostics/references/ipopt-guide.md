@@ -1,5 +1,10 @@
 # IPOPT Output Guide
 
+This guide is for internal interpretation by the agent. Use the
+technical IPOPT terms here to understand the output, but translate
+them into the plain-English explanation style from `SKILL.md` before
+showing anything to the user.
+
 ## Note on IPOPT Version
 
 The column names and exit messages in this guide are based on
