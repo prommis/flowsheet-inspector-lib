@@ -12,23 +12,20 @@ Developed as part of the Process Optimization & Modeling for Minerals Sustainabi
 - Import package: `idaes_fi`
 - Source layout: `src/idaes_fi`
 
-## Agent skills
+## Agent Skills
 
-This repository includes an agent-skills catalog for AI coding agents that work
-with PrOMMiS and IDAES flowsheet files.
+This repository includes PrOMMiS agent skills for common flowsheet development
+tasks. These skills give AI agents structured instructions for working with
+PrOMMiS flowsheets in a consistent and reviewable way.
 
-- [`skills/`](skills/) contains the skills catalog. Each skill lives in its own
-  directory and includes a `SKILL.md` file that explains when the skill applies
-  and what steps an agent should follow.
+The current skills support preparing flowsheets for the Flowsheet Inspector,
+making targeted value changes, finding missing imports, and interpreting solver
+or diagnostics issues.
 
-- [`skill-search/`](skill-search/) contains a lightweight search helper for
-  finding the most relevant skill from a plain-English request.
-
-The `.agents/skills/` and `.claude/skills/` wrapper directories expose
-`skill-search/` to agents that discover skills from those locations.
-
-See [`skill-search/README.md`](skill-search/README.md) for more details on the
-search helper.
+- [`skills/`](skills/) contains the PrOMMiS skill definitions.
+- [`skill-search/`](skill-search/) provides a lightweight command-line helper
+  for finding the most relevant skill from a plain-English request.
+- See [`docs/skills.md`](docs/skills.md) for setup and usage instructions.
 
 ## Usage
 
