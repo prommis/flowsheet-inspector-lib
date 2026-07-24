@@ -18,5 +18,20 @@
     "id": "diagnose_infeasible_run",
     "prompt": "my flowsheet failed with IPOPT infeasible",
     "expected_skill": "prommis-explain-diagnostics"
+  },
+  {
+    "id": "diagnose_named_flowsheet",
+    "prompt": "diagnose methanol_diagnostics.py",
+    "expected_skill": "prommis-explain-diagnostics"
+  },
+  {
+    "id": "diagnose_pasted_ipopt_output",
+    "prompt": "Diagnose this IPOPT output: EXIT: Converged to a point of local infeasibility.",
+    "expected_skill": "prommis-explain-diagnostics"
+  },
+  {
+    "id": "diagnose_pasted_toolbox_output",
+    "prompt": "Explain this DiagnosticsToolbox output: WARNING: Found structural issues.",
+    "expected_skill": "prommis-explain-diagnostics"
   }
 ]

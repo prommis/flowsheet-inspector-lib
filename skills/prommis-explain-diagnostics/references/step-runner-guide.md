@@ -1,189 +1,139 @@
-# Step Runner Guide
+# Full-Run and Fix Guide
 
-## Running the Full Flowsheet
+Use this guide for named flowsheets, focused follow-ups, and before/after verification.
 
-Run the entire flowsheet in one go:
-```bash
-conda run -n [environment] python -c "
-from [flowsheet_module] import FS
-from idaes.core.util import DiagnosticsToolbox
-FS.run_steps()
-m = FS._context.model
-dt = DiagnosticsToolbox(m)
-dt.report_structural_issues()
-dt.report_numerical_issues()
-"
+## Run the complete flowsheet
+
+A named-flow diagnosis authorizes one complete, local, read-only run. Announce Stage 1, name the diagnostics skill, say which flowsheet is running, and proceed without another permission question. Hide commands and environment setup.
+
+Resolve the target and compatible interpreter, then run:
+
+```text
+<python> <skill>/scripts/collect_diagnostics.py <flowsheet> --output <temporary>.json --quiet
 ```
 
-Capture all output. Never show the user the raw output directly.
-Extract only the important lines as described below and format
-them with plain English explanations.
+The collector:
 
-## What to Show From IPOPT Output
+- imports the target by path;
+- discovers a unique public runner;
+- executes every registered step in order;
+- captures console output, including solver output;
+- retains the public model and solver result after success or failure;
+- runs structural diagnostics whenever a model exists;
+- runs the full numerical report for a completed model;
+- runs the safe missing-value and bounds checks for a partial model;
+- labels diagnostics as completed-model or partial-model evidence.
 
-Only show the EXIT message — nothing else. No constraint
-violation, no iteration table, no other numbers.
+Remove the temporary JSON after reading it. Do not repeat the same full run merely to collect the same evidence.
 
-Format:
-"Solver output:
-[EXIT message exactly as it appears in the output]
-What this means: [plain English translation]"
+## Present results
 
-EXIT message translations:
-- "EXIT: Optimal Solution Found"
-  What this means: The flowsheet solved successfully.
-- "EXIT: Converged to a point of local infeasibility. Problem may be infeasible."
-  What this means: The flowsheet did not solve.
-- "EXIT: Maximum Number of Iterations Exceeded"
-  What this means: The run ran out of attempts before finding
-  a solution. Try fixing scaling issues first.
-- "EXIT: Restoration Failed"
-  What this means: The run failed badly. Check for model
-  setup issues first.
-- "EXIT: Error in AMPL Evaluation"
-  What this means: A calculation failed — likely dividing by
-  zero or using an invalid number.
+Show this sequence:
 
-## What to Show From DiagnosticsToolbox Output
+```text
+Stage 2 â€” here is what I found.
 
-Show each WARNING as a raw line followed immediately by a plain
-English explanation on the next line. Never show CAUTION details
-— just the count.
+Solver output:
+[exact EXIT line or structured result]
+What this means: [one sentence]
 
-Format:
-"Diagnostics output:
-- [raw WARNING text exactly as it appears]
-  What this means: [plain English translation]
-- [raw WARNING text exactly as it appears]
-  What this means: [plain English translation]
+Main issue:
+Evidence scope: [completed model or partial model after a failed run]
+[highest-priority component or WARNING]
+What this means: [one sentence]
+Fix: [one sentence]
+Source: [clickable flowsheet source line when available]
 
-[X] minor cautions — fix the above first."
+Other findings:
+[one sentence summarizing lower-priority warnings]
 
-If 0 WARNINGs and 0 CAUTIONs:
-"Diagnostics output:
-No issues found."
+[N] minor cautions â€” fix the warnings first.
 
-WARNING translations:
-- "Found X potential evaluation errors"
-  What this means: Some calculations are using bad values like
-  zero or numbers that are too big or too small.
-- "X variable(s) at or outside bounds"
-  What this means: A variable has gone outside its allowed range.
-- "X constraint(s) with large residuals"
-  What this means: Some equations are not being satisfied —
-  this is caused by the other problems above, not a separate
-  issue. Do not fix this directly — fix the root cause first.
-- "Structural Singularity"
-  What this means: The model has a conflict in its equations —
-  too many constraints in one place and not enough in another.
-- "Degrees of Freedom"
-  What this means: The model has too many or too few fixed values.
-- "X variable(s) with extreme values"
-  What this means: Some variables have very large or very small
-  values that make the run unstable.
-- "Unit consistency"
-  What this means: Two quantities with different units are being
-  added or compared — like adding temperature to pressure.
+Stage 3 â€” next step.
+[Only when the cause is still unclear:]
+I need to identify [plain-English target].
+Can I run dt.<method>() to [plain-English purpose]?
+```
 
-## Never Fix Outside the Flowsheet File
+If the evidence already identifies a component and current violation, omit the Stage 3 method question. Inspect the matching source specification and continue to the fix question.
 
-The agent should only edit the flowsheet file the user provided.
-Before attempting any fix, always check: can this be fixed by
-editing the flowsheet file?
+If more diagnosis is needed, stop after the Stage 3 method question. Do not run the follow-up until the user answers.
 
-- Yes → fix it directly in the file and re-run diagnostics
-- No → explain the issue in plain English, suggest what to
-  look into, and give the final summary — do not attempt fixes
-  outside the flowsheet file
+Apply the priority in `diagnostics-guide.md`. Show an explicit current bounds violation before broad structural or potential warnings from a partial model.
 
-Examples of fixes that CAN be made in the flowsheet file:
-- changing a .fix() value that is outside bounds
-- adding or removing a .fix() call to fix DOF
-- deactivating a redundant constraint
-- adding initialization for a unit model
+Do not show full IPOPT iteration tables, model-statistics blocks, complete tracebacks, environment selection, or raw caution details unless requested.
 
-Examples of fixes that CANNOT be made in the flowsheet file:
-- property package internal expressions
-  (e.g. eq_P_vap, eq_temperature_bubble, eq_temperature_dew)
-- IDAES source code
-- configuration files outside the flowsheet
+## Run an approved focused method
 
-When a fix cannot be made in the flowsheet file, tell the user:
-"[WARNING text]: This is in the property package, not your
-flowsheet file. I cannot fix this directly. Try solving anyway
-— this may not prevent the flowsheet from running. If it still
-fails, check the property package configuration or ask your
-IDAES contact."
-Then give the final summary.
+The method must be named by the current DiagnosticsToolbox report and callable on the installed object. Run it against a fresh reproduction of the same model state:
 
-## Running Suggested Next Steps
+```text
+<python> <collector> <flowsheet> --follow-up <exact-method> --output <temporary>.json --quiet
+```
 
-When the agent suggests a next step like dt.display_overconstrained_set():
-- ask "Can I run [method name] to get more details?"
-- STOP and wait for user response
-- if yes: run it silently, show only the relevant output lines
-  in the same format (raw line + What this means), explain in
-  1-2 plain English sentences
-- if no: ask user to run it themselves and paste the result
-  and STOP — wait for them to paste before continuing
+Read the `diagnostics.follow_up` record and show only the component lines relevant to the warning. If the fresh run is not comparable, say why. Do not rerun for another focused method without the user's approval.
 
-Before attempting any fix after running a next step:
-- check whether the fix can be made in the flowsheet file
-- if yes: fix it, re-run diagnostics, continue
-- if no: explain and give the final summary
+## Propose one fix
 
-## Stopping Conditions
+Do not propose a change until a component, source location, and expected improvement are supported. Inspect the matching flowsheet source before asking about a fix.
 
-Stop diagnosing and give the final summary when any of these
-are true. Do not continue past a stopping condition even if
-there are more WARNINGs or CAUTIONs remaining.
+State the one action that needs attention and ask one clear question:
 
-**Success:**
-EXIT: Optimal Solution Found AND 0 WARNINGs found.
-Tell the user: "All done. Your flowsheet is working correctly."
+```text
+Stage 3: next step.
+[one sentence describing the action]
+[one clear question asking for the needed decision and who should make the change]
+```
 
-**Same WARNING after 2 fix attempts:**
-If the same WARNING appears after 2 rounds of fixes, tell the
-user what is happening and ask if they want to continue:
-"I have tried fixing [WARNING] twice but it is still showing.
-This may need deeper investigation. Here is where things stand:
-[summary of what was fixed and what remains]
-Would you like me to keep trying, or shall I stop here and
-give you a summary of what is left to look into?"
+For a fixed value outside its bounds, show the current value, allowed range, and matching `.fix()` specification. Do not guess a replacement value. Ask what value should replace it and whether Codex should make the change and rerun or the user will change it.
 
-STOP and wait for user response.
-- If yes: continue trying with a different approach
-- If no: give the final summary
+Examples of in-scope flowsheet fixes:
 
-**Fix cannot be made in the flowsheet file:**
-If fixing a WARNING requires changes outside the flowsheet file,
-explain what it is and why it cannot be fixed, then give the
-final summary. Do not keep diagnosing.
+- correcting an invalid `.fix()` value;
+- adding or removing a specification to correct DOF;
+- deactivating a confirmed redundant constraint;
+- adding or correcting flowsheet-level scaling;
+- correcting units in the provided flowsheet.
 
-**CAUTIONs only remaining:**
-Once all WARNINGs are resolved, do not automatically chase
-CAUTIONs. Give the final summary. Only investigate CAUTIONs
-if the user explicitly asks after the summary.
+Do not edit installed package or runner internals as a flowsheet fix. Identify out-of-scope property-package or library code and explain what the evidence shows.
 
-## Final Summary Format
+## Verify
 
-Only show the final summary after hitting a stopping condition
-or after all WARNINGs are resolved.
+After an approved edit:
 
-If everything passed:
-"All done. Your flowsheet is working correctly."
+1. Announce `Re-checking the flowsheet after the change...`.
+2. Inspect the current file and preserve unrelated changes.
+3. Rerun the complete collector in a fresh process.
+4. Say whether the original issue is fixed.
+5. Compare the same solver and diagnostic categories.
+6. Walk the user to the next issue only if needed.
 
-If issues were found and fixed:
-"All done. I found and fixed [issue] — your flowsheet is now
-working correctly."
+If the user edits the file, inspect it directly rather than asking them to paste output.
 
-If issues remain that cannot be fixed in the flowsheet file:
-"Your flowsheet still has an issue I cannot fix directly:
-[issue in plain English]: [one line what to look into]
-Try solving anyway — this may not prevent the flowsheet from
-running. If it still fails, check with your IDAES contact."
+## Stop and summarize
 
-If same WARNING appeared after 2 fix attempts and user said stop:
-"This issue kept coming back after 2 fix attempts:
-[WARNING]: [one line what to check manually]
-Everything else looks good. Try solving and see what happens."
+Stop when:
+
+- the solver succeeds and no DiagnosticsToolbox warnings remain;
+- only cautions remain;
+- the needed change is outside scope;
+- the same warning remains after two verified fix attempts and the user chooses to stop;
+- the user asks to stop.
+
+Successful summary:
+
+```text
+All done. Your flowsheet solved successfully and DiagnosticsToolbox found no warnings.
+```
+
+Fixed summary:
+
+```text
+All done. I fixed [issue]. The rerun changed from [before] to [after], and the original warning is gone.
+```
+
+Unresolved summary:
+
+```text
+The flowsheet still stops at [phase/result]. The remaining issue is [plain-English finding]. The next useful check is [one action].
+```

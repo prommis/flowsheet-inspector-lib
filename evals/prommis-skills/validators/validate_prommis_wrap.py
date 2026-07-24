@@ -18,7 +18,6 @@ EXPECTED_STEPS = (
 REQUIRED_SNIPPETS = (
     "from idaes_fi.structfs.fsrunner import FlowsheetRunner, Context",
     "FlowsheetRunner",
-    "steps=",
 )
 
 

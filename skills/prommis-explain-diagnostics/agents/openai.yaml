@@ -1,0 +1,4 @@
+interface:
+  display_name: "PrOMMiS Explain Diagnostics"
+  short_description: "Run flowsheets and explain solver diagnostics"
+  default_prompt: "Use $prommis-explain-diagnostics to run this flowsheet, explain the important IPOPT and DiagnosticsToolbox results, and guide me through the next step."

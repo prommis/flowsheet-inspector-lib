@@ -1,0 +1,37 @@
+﻿{
+  "name": "prommis-skills",
+  "version": "0.1.0",
+  "description": "Agent skills for common PrOMMiS flowsheet development tasks.",
+  "author": {
+    "name": "PrOMMiS"
+  },
+  "homepage": "https://github.com/prommis/flowsheet-inspector-lib",
+  "repository": "https://github.com/prommis/flowsheet-inspector-lib",
+  "keywords": [
+    "prommis",
+    "flowsheet",
+    "idaes",
+    "watertap",
+    "pyomo",
+    "flowsheet-inspector",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PrOMMiS Skills",
+    "shortDescription": "Agent workflows for PrOMMiS flowsheet development.",
+    "longDescription": "Reusable agent workflows for preparing flowsheets for the Flowsheet Inspector, changing fixed values, finding missing imports, and interpreting solver or diagnostics issues.",
+    "developerName": "PrOMMiS",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Wrap this flowsheet for the Flowsheet Inspector.",
+      "Change a fixed value in this flowsheet.",
+      "Explain why this flowsheet solve failed."
+    ],
+    "brandColor": "#B85445"
+  }
+}

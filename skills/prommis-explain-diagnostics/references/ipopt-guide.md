@@ -1,153 +1,101 @@
-# IPOPT Output Guide
+# IPOPT Result Guide
 
-This guide is for internal interpretation by the agent. Use the
-technical IPOPT terms here to understand the output, but translate
-them into the plain-English explanation style from `SKILL.md` before
-showing anything to the user.
+Use this guide after a run produces a structured solver result or positively identified IPOPT log. Show the user only the final result needed for the next decision; retain the complete log internally.
 
-## Note on IPOPT Version
+## Source priority
 
-The column names and exit messages in this guide are based on
-IPOPT 3.14. Before explaining any specific column or message,
-run this silently to check the installed IPOPT version:
+Prefer the structured Pyomo result:
 
-```bash
-conda run -n [environment] python -c "
-from idaes.core.solvers import get_solver
-solver = get_solver()
-print(solver.version())
-"
+```python
+from pyomo.opt import check_optimal_termination
+
+ok = check_optimal_termination(results)
+status = results.solver.status
+termination = results.solver.termination_condition
+message = results.solver.message
 ```
 
-If the version differs significantly from 3.14, the column names
-and exit messages in this guide may differ slightly. Use the
-guide as a conceptual reference and adapt explanation to what
-the user actually pasted.
+Use the exact IPOPT `EXIT:` line as supporting evidence when captured. If structured and console results differ, report both and do not silently choose one.
 
-## What IPOPT Output Looks Like
+## User-facing result translations
 
-When you run solver.solve(m, tee=True) you see the full IPOPT log.
-Here is what each section means.
+### Optimal solution
 
-## Header Section
+Examples include `optimal` and `EXIT: Optimal Solution Found`.
 
-    Number of variables: 4
-    Number of equality constraints: 4
-    Number of inequality constraints: 0
+```text
+What this means: The flowsheet solved successfully.
+```
 
-Variables should equal equality constraints for a square model
-(DOF = 0). If they do not match, check DOF before solving.
+Continue with DiagnosticsToolbox. A successful solve does not erase diagnostic warnings.
 
-## Iteration Table Columns
+### Local infeasibility
 
-iter — iteration number
+Example: `EXIT: Converged to a point of local infeasibility. Problem may be infeasible.`
 
-objective — current objective value
+```text
+What this means: The flowsheet ran, but it could not find values that satisfy all active equations and bounds.
+```
 
-inf_pr — constraint violation. Must reach near 1e-8 for success.
-         If stuck at the same value across many iterations, a
-         variable has hit a bound.
+Next check: use the installed DiagnosticsToolbox report, prioritizing variables at/outside bounds and structural warnings before large residuals.
 
-inf_du — dual infeasibility. Must also reach near 1e-8.
+### Maximum iterations
 
-lg(mu) — barrier parameter. Decreases as IPOPT converges.
+Example: `EXIT: Maximum Number of Iterations Exceeded`.
 
-lg(rg) — regularization coefficient. If this has persistent values
-          across many iterations, the Jacobian is singular.
-          Structural problem — run report_structural_issues().
+```text
+What this means: The flowsheet stopped before finding a solution.
+```
 
-alpha_pr — step size for primal variables. If consistently very
-           small like 1e-8, IPOPT is struggling.
+Next check: inspect DiagnosticsToolbox for extreme values, scaling warnings, bounds, and large residuals before proposing a larger iteration limit.
 
-ls — line search steps. If consistently greater than 1, IPOPT is
-     struggling to make progress. Sign of degeneracy or poor scaling.
+### Restoration failed
 
-## Warning Signs in the Iteration Table
+Example: `EXIT: Restoration Failed`.
 
-inf_pr stuck at same value for many iterations:
-A variable has hit a bound. Run display_variables_at_or_outside_bounds()
-— verify this method name exists in the installed version first.
+```text
+What this means: The flowsheet could not recover a set of values that satisfies its equations.
+```
 
-r appearing next to iteration number:
-IPOPT entered restoration phase. Very bad sign. Run
-report_structural_issues() before trying again.
+Next check: run structural diagnostics first, then inspect bounds and evaluation errors from the retained state.
 
-lg(rg) column has persistent values with L or l tags:
-Jacobian is singular. Run report_structural_issues().
+### Evaluation error
 
-ls consistently greater than 10:
-Degeneracy or very poor scaling. Run prepare_svd_toolbox() —
-verify this method name exists in the installed version first.
+Examples include `EXIT: Error in AMPL Evaluation` or an IPOPT evaluation failure.
 
-alpha_pr very small consistently:
-Variable near a bound or model poorly scaled.
+```text
+What this means: A calculation received an invalid value, such as division by zero or a logarithm of a nonpositive number.
+```
 
-## EXIT Messages
+Next check: `display_potential_evaluation_errors()` when recommended and available, followed by the variables used by the reported expressions.
 
-### EXIT: Optimal Solution Found
+### Other or unfamiliar termination
 
-Solve succeeded. inf_pr and inf_du both reached near zero.
-Check that solution values are physically reasonable.
+Show the exact structured status, termination condition, and message. Explain only what those values establish. Do not convert an unfamiliar result into one of the common categories above.
 
-### EXIT: Converged to a point of local infeasibility. Problem may be infeasible.
+## Iteration-log clues
 
-IPOPT could not satisfy all constraints. Most common causes:
-- variable outside its bounds
-  run: display_variables_at_or_outside_bounds()
-- structural singularity
-  run: report_structural_issues()
-- operating conditions outside valid range for property package
+Do not show the iteration table unless the user asks. Internally, it can help select a check:
 
-Always verify method names exist in the installed version before
-suggesting them to the user.
+- constraint violation that stops improving can justify checking bounds and large residuals;
+- restoration iterations justify structural and evaluation-error checks;
+- persistent regularization can justify structural or scaling diagnostics;
+- repeated tiny steps or many line searches can justify bounds, extreme-value, or scaling checks.
 
-### EXIT: Maximum Number of Iterations Exceeded
+These patterns are clues, not proof of a root cause. Use DiagnosticsToolbox to locate components.
 
-Hit the iteration limit. Not necessarily infeasible — may just
-need more iterations or better scaling.
+## Solver options
 
-Try: solver.options['max_iter'] = 5000
-Or check scaling: run display_variables_with_extreme_values() —
-verify this method name exists in the installed version first.
+Do not use `max_iter`, tolerances, or scaling options as the first fix. Confirm the installed option, connect it to observed evidence, offer it as one explicit change, and verify before/after results.
 
-### EXIT: Restoration Failed
+## Presentation rule
 
-Restoration phase also failed. Model is very poorly conditioned.
-Run report_structural_issues() and fix all structural issues
-before trying again.
+Use:
 
-### EXIT: Error in AMPL Evaluation
+```text
+Solver output:
+[exact EXIT line, or structured status and termination]
+What this means: [one short translation]
+```
 
-A constraint or objective evaluation failed — usually division
-by zero or log of a negative number. Check initial values and
-bounds for variables in nonlinear expressions.
-
-## Summary Section
-
-At the end of the log:
-
-    Constraint violation = 8.40e+02
-    Overall NLP error    = 8.40e+02
-
-If constraint violation is above 1e-4, the model did not solve
-even if IPOPT said it converged. Always check this number.
-
-## Debugging Order for IPOPT Failures
-
-1. Read the EXIT message first
-2. If infeasible: run report_structural_issues() and
-   display_variables_at_or_outside_bounds()
-3. If max iterations: check scaling first, then increase limit
-4. If restoration failed: run report_structural_issues()
-5. If error in evaluation: check initial values and bounds
-6. Never try to fix IPOPT output directly without running
-   DiagnosticsToolbox first — IPOPT symptoms are caused by
-   structural or scaling issues that DiagnosticsToolbox catches
-
-## Important
-
-Always run the method name verification silently before suggesting
-any DiagnosticsToolbox method to the user. Never suggest a method
-that does not exist in the installed version. If a method name has
-changed, find the closest match from the actual installed class and
-suggest that instead.
+Never bury the final result in the full IPOPT table.

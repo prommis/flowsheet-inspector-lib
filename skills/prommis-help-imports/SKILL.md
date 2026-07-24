@@ -1,7 +1,6 @@
 ---
 name: prommis-help-imports
-description: Returns the exact import statement for any PrOMMiS, IDAES, Pyomo, or Flowsheet Inspector module. TRIGGER when: user gets ImportError or ModuleNotFoundError, doesn't know import path, asks how to import LeachingTrain, FlowsheetRunner, DiagnosticsToolbox, Flash, Mixer, or any unit model or property package, asks where a class lives. DO NOT TRIGGER when: user wants to wrap a flowsheet, change a value, or debug a solver error.
-compatibility: Requires the same conda environment as the flowsheet being worked on — idaes-fi for flowsheets importing from prommis or idaes_fi, prommis-dev for flowsheets importing from idaes_examples.
+description: "Returns the exact import statement for any PrOMMiS, IDAES, Pyomo, or Flowsheet Inspector module. TRIGGER when: user gets ImportError or ModuleNotFoundError, doesn't know import path, asks how to import LeachingTrain, FlowsheetRunner, DiagnosticsToolbox, Flash, Mixer, or any unit model or property package, asks where a class lives. DO NOT TRIGGER when: user wants to wrap a flowsheet, change a value, or debug a solver error."
 metadata:
   author: Tanushree Subramanian
   version: "1.0"
@@ -49,6 +48,10 @@ user's actual installed version.
 Resolve `scripts/get_imports.py` relative to the directory that
 contains this `SKILL.md`. From the repository root, that path is
 `skills/prommis-help-imports/scripts/get_imports.py`.
+
+Resolve scripts/verify_file_imports.py the same way. Use it after
+editing a named file to verify syntax and confirm each inserted import
+occurs exactly once without executing the flowsheet.
 
 ## Stage 1 — Gather Context
 
@@ -210,6 +213,15 @@ Do not show the user the import as a code block to copy — confirm:
 "Done. Added [import statement] to [filename] after [neighboring
 import line]."
 
+After writing the import, run the file verifier silently:
+
+    python <path-to-this-skill>/scripts/verify_file_imports.py <file> <module_path> <class_name>
+
+For multiple imports, append another <module_path> <class_name> pair
+for each import. The verifier must pass before reporting success. If it
+fails, correct the file and rerun it. Do not execute the flowsheet as a
+substitute for this check.
+
 If verification fails, try the other conda environment silently
 and run again. If both fail tell the user:
 "Verification failed in both environments. The package installation
@@ -261,6 +273,8 @@ should only see clean stage-by-stage output.
   the resolution process
 - never add an import that already exists in the user's file
 - always run the verification command silently in stage 3
+- after editing a named file, always run scripts/verify_file_imports.py
+- only report success after both import and file verification pass
 - always try both environments before reporting no match
 - never show the user internal script output, warnings, or errors
 - if a file is named always write the import directly to the file

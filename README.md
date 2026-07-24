@@ -22,10 +22,11 @@ The current skills support preparing flowsheets for the Flowsheet Inspector,
 making targeted value changes, finding missing imports, and interpreting solver
 or diagnostics issues.
 
-- [`skills/`](skills/) contains the PrOMMiS skill definitions.
-- [`skill-search/`](skill-search/) provides a lightweight command-line helper
-  for finding the most relevant skill from a plain-English request.
-- See [`docs/skills.md`](docs/skills.md) for setup and usage instructions.
+- [`skills/`](skills/) contains the PrOMMiS skill folders, including each
+  skill's instructions, reference files, and helper scripts.
+- [`skill-search/`](skill-search/) contains the command-line search helper that
+  matches a plain-English request to the most relevant PrOMMiS skill. 
+- See [`skill-search/README.md`](skill-search/README.md) for direct usage details.
 
 ## Usage
 

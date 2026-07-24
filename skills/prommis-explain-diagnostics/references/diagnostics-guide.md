@@ -1,186 +1,182 @@
 # DiagnosticsToolbox Guide
 
-## Note on Method Names
+Use the installed DiagnosticsToolbox report to explain what is wrong and choose one focused next step. Preserve the report's exact warning text, tolerance, and suggested method names.
 
-The DiagnosticsToolbox method names listed in this guide are based
-on idaes 2.12.0. Before suggesting any method to the user, run
-this silently to verify the method exists in the installed version:
+## Standard sequence
 
-```bash
-conda run -n [environment] python -c "
+For a completed model:
+
+```python
 from idaes.core.util import DiagnosticsToolbox
-methods = [m for m in dir(DiagnosticsToolbox) if not m.startswith('_')]
-print('\n'.join(methods))
-"
+
+dt = DiagnosticsToolbox(model)
+dt.report_structural_issues()
+dt.report_numerical_issues()
 ```
 
-Run this silently. If a method name in this guide does not appear
-in the output, find the closest matching method name from the output
-and use that instead. Never suggest a method that does not exist in
-the installed version.
+For a partial model retained after a failed run:
 
-## What DiagnosticsToolbox Does
+```python
+dt = DiagnosticsToolbox(model)
+dt.report_structural_issues()
+dt.display_variables_with_none_value_in_activated_constraints()
+dt.display_variables_at_or_outside_bounds()
+```
 
-DiagnosticsToolbox checks your flowsheet for problems that would
-cause it to fail to solve or give wrong results. It has two phases.
+Label the focused results as partial-model evidence. Do not run the full numerical report on an unfinished model.
 
-Phase 1 — structural checks, run BEFORE solving:
+Use the normal review order: degrees of freedom, structural issues, unit consistency, bounds, then other numerical warnings. On a partial model, do not let broad structural artifacts outrank an explicit current violation that identifies a component, value, and bounds. After any model change, start again with the structural report.
 
-    dt = DiagnosticsToolbox(m)
-    dt.report_structural_issues()
+## Severity
 
-Phase 2 — numerical checks, run AFTER solving:
+- **WARNING:** important issue to understand before trusting the run.
+- **Caution:** condition worth checking, but it may be intentional and does not automatically block the flowsheet.
 
-    dt.report_numerical_issues()
+Show each warning. Show only the number of cautions unless the user asks to investigate them.
 
-Always fix structural issues before numerical issues.
-Always re-run report_structural_issues() after any change to the model.
+## Warning translations and next checks
 
-## How to Read the Output
+### Degrees of Freedom is not zero
 
-Two severity levels:
+```text
+What this means: The model has too many or too few fixed values or active equations.
+Fix: Identify the unmatched variables or equations before solving.
+```
 
-WARNING — must fix before the model will solve correctly
-CAUTION — worth investigating but model may still solve
-
-## Structural Issues and Fixes
-
-### DOF is not zero
-
-What it means: DOF = variables minus equations. DOF > 0 means not
-enough .fix() calls. DOF < 0 means too many .fix() calls or a
-duplicate constraint.
-
-How to fix DOF > 0: add .fix() calls in set_operating_conditions.
-How to fix DOF < 0: remove a .fix() call or deactivate a constraint.
+- Positive DOF: inspect missing specifications or `.fix()` calls.
+- Negative DOF: inspect extra `.fix()` calls or redundant constraints.
+- Follow the report's suggested under/over-constrained-set method when present.
 
 ### Structural singularity
 
-What it means: the model has an over-constrained set and an
-under-constrained set at the same time. Some variables can never
-be determined even if DOF = 0.
+```text
+What this means: Some equations conflict while other variables are not uniquely controlled.
+Fix: Locate the over-constrained and under-constrained sets and correct the extra and missing relationships.
+```
 
-How to find it — verify these method names exist before suggesting:
+Typical focused methods, when named by the report and present in the installed API:
 
-    dt.display_overconstrained_set()
-    dt.display_underconstrained_set()
+- `display_overconstrained_set()`
+- `display_underconstrained_set()`
 
-How to fix: check the over-constrained set for a redundant
-constraint or extra .fix() call. Check the under-constrained set
-for a missing .fix() call or missing equation.
+### Potential evaluation errors
 
-### Unit consistency issue
+```text
+What this means: Some calculations can receive invalid values, such as division by zero or a logarithm of a nonpositive number.
+Fix: Locate those expressions and check the values and bounds used by them.
+```
 
-What it means: a constraint mixes incompatible units, like adding
-Kelvin to Pascal. Will always give wrong results even if it solves.
+Focused method: `display_potential_evaluation_errors()`.
 
-How to find it — verify method name exists before suggesting:
+### Variables at or outside bounds
 
-    dt.display_components_with_inconsistent_units()
+```text
+What this means: One or more variables are at or beyond their allowed range.
+Fix: Identify the variables and correct an invalid fixed value, operating condition, or bound.
+```
 
-How to fix: find the constraint shown and fix the units. Usually
-a missing unit conversion or wrong property package.
+Focused method: `display_variables_at_or_outside_bounds()`.
 
-## Numerical Issues and Fixes
+When the focused output identifies a fixed variable outside its bounds:
 
-### Variable at or outside bounds
+- show the component name, current value, and allowed range;
+- inspect the matching flowsheet specification;
+- do not invent a replacement value;
+- ask the user how they want to correct the specification.
 
-What it means: a variable has hit or exceeded its bound. The most
-common cause of a failed run. The calculation cannot move past a bound.
+Prioritize a fixed variable outside its bounds over a free variable merely sitting at a bound.
 
-How to find it — verify method name exists before suggesting:
+### Variables near bounds
 
-    dt.display_variables_at_or_outside_bounds()
+```text
+What this means: One or more variables are close to the edge of their allowed range.
+Fix: Check whether the operating condition or bound is intentionally tight.
+```
 
-How to fix: relax the bound if too tight, or check if operating
-conditions are outside the valid range for the property package.
+Focused method: `display_variables_near_bounds()`.
 
-### Variable near bounds
+### Constraints with large residuals
 
-What it means: a variable is close to but not yet at its bound.
-Warning sign that infeasibility may be coming.
+```text
+What this means: Some equations are not currently satisfied.
+Fix: Check bounds, invalid evaluations, and structural warnings first; residuals are often a symptom.
+```
 
-How to find it — verify method name exists before suggesting:
+Focused method: `display_constraints_with_large_residuals()`.
 
-    dt.display_variables_near_bounds()
+### Variables with extreme values
 
-How to fix: same as above.
+```text
+What this means: Some variable values are much larger or smaller than the rest of the model.
+Fix: Confirm the values are expected, then check or add appropriate scaling in the flowsheet.
+```
 
-### Constraint with large residual
+Focused method: `display_variables_with_extreme_values()`.
 
-What it means: a constraint is not being satisfied. This is usually
-a symptom, not the root cause. Always check bounds violations first.
+### Poor scaling
 
-How to find it — verify method name exists before suggesting:
+```text
+What this means: Some equations or variables operate on very different numerical scales.
+Fix: Locate the affected components and set scaling from representative values.
+```
 
-    dt.display_constraints_with_large_residuals()
+Use the exact scaling method recommended by the installed report. Do not invent a universal scaling factor.
 
-How to fix: do not fix the constraint directly. Find the root cause
-first — usually a variable outside its bounds or a scaling issue.
+### Near-parallel or duplicate constraints
 
-### Variable with extreme value
+```text
+What this means: Two equations may be providing nearly the same information.
+Fix: Confirm whether one constraint is redundant before deactivating anything.
+```
 
-What it means: a variable has a very large or very small value like
-1e10 or 1e-10. Causes numerical precision problems during the run.
+Focused method: `display_near_parallel_constraints()` when recommended and available.
 
-How to find it — verify method name exists before suggesting:
+### Unit consistency
 
-    dt.display_variables_with_extreme_values()
+```text
+What this means: An expression combines quantities whose units are not compatible.
+Fix: Locate the component and correct the units or conversion in the flowsheet code.
+```
 
-How to fix: set a scaling factor for that variable:
+Use the exact installed method suggested by the report.
 
-    iscale.set_scaling_factor(m.fs.unit.variable, 1/typical_value)
-    iscale.calculate_scaling_factors(m)
+## Choosing one next step
 
-### Near parallel constraints
+Prefer the methods printed under the report's `Suggested next steps` or `Next Steps`.
 
-What it means: two constraints are nearly identical — one is
-redundant. Causes degeneracy, which can make the run struggle.
+For a completed model, use this priority:
 
-How to find it — verify method name exists before suggesting:
+1. over/under-constrained sets for structural singularity or nonzero DOF;
+2. unit consistency;
+3. variables at/outside bounds;
+4. variables near bounds;
+5. potential evaluation errors;
+6. extreme values or scaling;
+7. large residuals;
+8. cautions only when the user asks.
 
-    dt.display_near_parallel_constraints()
+For a partial model, use the direct bounds-check output ahead of broad structural follow-ups when it shows a fixed variable outside its bounds. Treat missing values, free variables at a bound, residuals, and potential evaluation errors as lower priority than that confirmed current violation.
 
-How to fix: deactivate one of the redundant constraints.
+Verify the exact method against the installed object:
 
-## Degeneracy
+```python
+import inspect
 
-Degeneracy means one or more constraints are redundant. Signs:
-- the run takes many more iterations than expected
-- ls column in IPOPT log consistently greater than 1
-- SVD analysis shows near-zero singular values
+method = getattr(dt, method_name, None)
+signature = inspect.signature(method) if callable(method) else None
+documentation = inspect.getdoc(method) if callable(method) else None
+```
 
-How to check for degeneracy — verify method names exist before
-suggesting:
+Do not select a fuzzy name. Run only an exact report-suggested method that can be called without unsupported required arguments.
 
-    svd = dt.prepare_svd_toolbox()
-    svd.display_rank_of_equality_constraints()
+## Focused output
 
-Each near-zero singular value means one degenerate constraint.
+For each relevant component line use:
 
-How to find the exact redundant constraints — verify method names
-exist before suggesting:
+```text
+[raw component line]
+What this means: [what the variable, constraint, or expression is doing]
+Fix: [one precise check or change]
+```
 
-    dh = dt.prepare_degeneracy_hunter()
-    dh.report_irreducible_degenerate_sets()
-
-Note: degeneracy hunter requires SCIP solver.
-
-## Debugging Order
-
-Always follow this order:
-
-1. Run report_structural_issues()
-2. Fix all WARNINGs
-3. Fix CAUTIONs if needed
-4. Re-run report_structural_issues() to confirm fixed
-5. Try to solve
-6. Run report_numerical_issues()
-7. Fix WARNINGs — check bounds violations before residuals
-8. Fix CAUTIONs
-9. Re-solve and verify
-
-## Import
-
-    from idaes.core.util import DiagnosticsToolbox
-    dt = DiagnosticsToolbox(m)
+Do not claim a partial-initialization warning is the original root cause until the focused output and source specification confirm it.

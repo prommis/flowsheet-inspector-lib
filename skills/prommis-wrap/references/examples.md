@@ -1,83 +1,138 @@
 # Wrapping Examples
 
+## Contents
+
+- [Example conversation](#example-conversation)
+- [Function-by-function mode](#function-by-function-mode)
+- [One-shot mode](#one-shot-mode)
+- [Original flash flowsheet](#flash-flowsheet--before-original-unwrapped-version)
+- [Wrapped flash flowsheet](#flash-flowsheet--after-wrapped-version)
+- [Summary of changes](#what-changed)
+
 ## Example Conversation
 
-This is what a full wrapping conversation should look like.
+This is what a complete wrapping conversation should look like.
+Copied flowsheet code stays formatted like the original except for
+the permitted wrapper transformations described in `SKILL.md`.
+
+### Function-by-Function Mode
 
 User: "wrap flash_flowsheet.py"
 
-AI: "I found 4 functions in flash_flowsheet.py. Here is my wrapping plan:
-- build_model -> @FS.step("build")
-- set_operating_conditions -> @FS.step("set_operating_conditions")
-- init_model -> @FS.step("initialize")
-- solve -> @FS.step("solve_initial")
-- adding new set_solver step
-- adding explicit steps= order to FlowsheetRunner since this flowsheet
-  fixes inputs in set_operating_conditions and must initialize after,
-  not before
-Confirm to proceed?"
+AI: "Stage 1 reading flash_flowsheet.py.
 
-User: "yes"
+I found 4 functions. It has initialization, no costing, and no
+optimization objective. The original execution order is build_model,
+set_operating_conditions, init_model, solve. The required environment
+is idaes-fi."
+
+AI: "Stage 2 wrapping plan.
+
+| # | Plan item | Wrapped result |
+|---|-----------|----------------|
+| 1 | imports and runner setup | add FlowsheetRunner, Context, and the explicit ordered steps sequence |
+| 2 | build_model | `@FS.step('build')` |
+| 3 | set_solver | add wrapper-only `@FS.step('set_solver')` |
+| 4 | set_operating_conditions | `@FS.step('set_operating_conditions')` |
+| 5 | init_model | `@FS.step('initialize')` |
+| 6 | solve | `@FS.step('solve_initial')` |
+| 7 | __main__ block | `FS.run_steps()` |
+
+Execution order: build, set_solver, set_operating_conditions,
+initialize, solve_initial
+
+Total plan items: 7
+
+Wrapping modes:
+1. Function-by-function: show, confirm, and write each item.
+2. One-shot: write the complete approved plan, then verify it.
+
+Confirm this plan and choose a mode."
+
+User: "Plan confirmed. Use function-by-function mode."
 
 AI: "What would you like to name the wrapped file? Default is
 flash_flowsheet_wrapped.py"
 
 User: "flash_flowsheet_wrapped.py"
 
-AI: "Creating flowsheet/flash_flowsheet_wrapped.py. I will show one item
-at a time and only write each item after you confirm it.
+AI: "Stage 2 wrapping in progress.
 
-Wrapping build_model — here is the complete wrapped function:
-[shows just build_model wrapped]
-Does this look right? Confirm to continue to set_operating_conditions."
+Imports and runner setup:
+[shows original imports plus FlowsheetRunner, Context, and the
+approved explicit steps sequence]
 
-User: "looks good"
+Confirm to write this item."
 
-AI: "Wrapping set_operating_conditions — here is the complete wrapped
-function: [shows just set_operating_conditions wrapped]
-Does this look right? Confirm to continue."
+User: "Confirmed."
 
-[continues function by function until all done, including the steps=
-ordering tuple and the __main__ block as their own confirmed items]
+AI: "build_model wrapped as `@FS.step('build')`:
+[shows only the wrapped build_model item]
 
-AI: "All items wrapped and confirmed. Running diff check:
-- function count: original 4, wrapped 5 (1 new set_solver) ✓
-- no lines dropped ✓
-- imports correct ✓
-- context handling correct ✓
-- step names all valid ✓
-- steps= ordering present and correct ✓"
+Confirm to write this item."
 
-AI: "Written to flowsheet/flash_flowsheet_wrapped.py.
-Activate idaes-fi before running it:
-conda activate idaes-fi
-If a step fails during a run you may see an AttributeError mentioning
-_solver_out — this is a known idaes-fi library bug, the real issue
-is whatever step actually failed."
+User: "Confirmed."
 
-## Why steps= Ordering Matters
+AI: "Wrapper-only `@FS.step('set_solver')`:
+[shows only set_solver]
 
-FlowsheetRunner does not run steps in the order they appear in the
-file. It uses an internal default canonical order that runs
-initialize BEFORE set_operating_conditions, which breaks any
-flowsheet that fixes inputs before initializing — the normal case.
+Confirm to write this item."
 
-Always pass an explicit steps= tuple to FlowsheetRunner() when the
-flowsheet has both an initialize step and a set_operating_conditions
-step:
+[continues one item at a time through the remaining functions and the
+`__main__` block; each item is written only after confirmation]
 
-```python
-FS = FlowsheetRunner(
-    steps=(
-        "build",
-        "set_solver",
-        "set_operating_conditions",
-        "set_scaling",
-        "initialize",
-        "solve_initial",
-    )
-)
-```
+AI: "Stage 3 running verification checklist.
+
+- Mode-Specific Writing Gate: PASS
+- Plan Completeness Check: PASS
+- Valid Step Name Check: PASS
+- Execution Order Check: PASS
+- Source Accounting Check: PASS
+- Normalized Source Preservation Check: PASS
+- Import Check: PASS
+- Context Check: PASS
+- Bottom of File Check: PASS
+- Syntax Check: PASS
+- Confirm File Written: PASS
+
+Written to flowsheet/flash_flowsheet_wrapped.py.
+Activate the required environment before running it:
+conda activate idaes-fi"
+
+### One-Shot Mode
+
+The one-shot conversation uses the same Stage 1 findings and Stage 2
+plan shown above.
+
+User: "Plan confirmed. Use one-shot mode."
+
+AI: "What would you like to name the wrapped file? Default is
+flash_flowsheet_wrapped.py"
+
+User: "flash_flowsheet_wrapped.py"
+
+AI: "Stage 2 wrapping in progress."
+
+[writes all seven approved plan items to the new file in one pass;
+does not show or request confirmation for individual items]
+
+AI: "Stage 3 running verification checklist.
+
+- Mode-Specific Writing Gate: PASS
+- Plan Completeness Check: PASS
+- Valid Step Name Check: PASS
+- Execution Order Check: PASS
+- Source Accounting Check: PASS
+- Normalized Source Preservation Check: PASS
+- Import Check: PASS
+- Context Check: PASS
+- Bottom of File Check: PASS
+- Syntax Check: PASS
+- Confirm File Written: PASS
+
+Written to flowsheet/flash_flowsheet_wrapped.py.
+Activate the required environment before running it:
+conda activate idaes-fi"
 
 ## Flash Flowsheet — Before (original unwrapped version)
 
@@ -174,6 +229,10 @@ def build_model(ctx: Context):
     m.fs.valve_outlet = Port(extends=m.fs.valve.outlet)
     ctx.model = m
 
+@FS.step("set_solver")
+def set_solver(ctx: Context):
+    ctx.solver = SolverFactory("ipopt")
+
 @FS.step("set_operating_conditions")
 def set_operating_conditions(ctx: Context):
     m = ctx.model
@@ -190,13 +249,10 @@ def init_model(ctx: Context):
     m = ctx.model
     m.fs.flash.initialize(outlvl=idaeslog.INFO)
 
-@FS.step("set_solver")
-def set_solver(ctx: Context):
-    ctx.solver = SolverFactory("ipopt")
-
 @FS.step("solve_initial")
 def solve(ctx: Context):
-    ctx["results"] = ctx.solver.solve(ctx.model, tee=ctx["tee"])
+    m = ctx.model
+    ctx["results"] = ctx.solver.solve(m, tee=ctx["tee"])
 
 if __name__ == "__main__":
     FS.run_steps()
@@ -205,28 +261,10 @@ if __name__ == "__main__":
 ## What Changed
 
 - added `from idaes_fi.structfs.fsrunner import FlowsheetRunner, Context`
-- added `FS = FlowsheetRunner(steps=(...))` with explicit ordering so
-  set_operating_conditions and initialize run before set_solver and
-  solve_initial in the correct sequence
-- added `@FS.step("build")` above build_model
-- changed `build_model()` -> `build_model(ctx: Context)`
-- replaced `return m` -> `ctx.model = m`
-- added `@FS.step("set_operating_conditions")` above set_operating_conditions
-- changed all `(m)` -> `(ctx: Context)`
-- added `m = ctx.model` as first line of each step except build
-- added separate `@FS.step("set_solver")` step
-- replaced `SolverFactory("ipopt")` + `solver.solve()` in solve ->
-  `ctx.solver.solve(ctx.model, tee=ctx["tee"])`
-- replaced `tee=True` -> `tee=ctx["tee"]`
-- replaced manual calls at bottom -> `FS.run_steps()`
-
-## Note on Complex Flowsheets
-
-For a more complex wrapping example including the substep pattern
-(@FS.substep) and a real-world steps= ordering tuple, open
-hda_flowsheet.py or methanol_flowsheet.py from the flowsheet/ folder
-in the flowsheet-inspector repo.
-
-Substeps are used when helper functions inside build need to be visible
-to the Flowsheet Inspector. If they are just internal helpers, leave
-them as plain functions called from inside build.code 
+- derived `build`, `set_operating_conditions`, `initialize`, and
+  `solve_initial` order from the original `__main__` block
+- inserted the wrapper-only `set_solver` immediately after `build`
+- added the resulting explicit sequence with
+  `FS = FlowsheetRunner(steps=(...))`
+- added decorators and context handling without changing the copied
+  flowsheet logic

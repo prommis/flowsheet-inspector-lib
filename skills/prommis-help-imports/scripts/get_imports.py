@@ -78,6 +78,9 @@ def search_package(package_name: str, class_name: str) -> list[str]:
         prefix=package_name + ".",
         onerror=lambda x: None,
     ):
+        if ".tests." in module_name or module_name.endswith(".tests"):
+            continue
+
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
