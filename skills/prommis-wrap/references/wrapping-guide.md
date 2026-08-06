@@ -7,6 +7,7 @@
 - [Validate step names](#critical--valid-step-names-are-not-execution-order)
 - [Derive execution order](#critical--derive-execution-order-from-the-original-entrypoint)
 - [Step purposes](#what-each-step-does)
+- [Solver lifecycle](#preserve-solver-lifecycle)
 - [Step-selection decision tree](#decision-tree--which-steps-to-include)
 - [Wrapping modes](#wrapping-mode-procedures)
 - [Step naming](#how-to-name-each-step)
@@ -62,8 +63,8 @@ Example:
 - solve -> @FS.step("solve_initial")
 - adding new set_solver step
 - __main__ block -> replaced with FS.run_steps()
-Execution order: build, set_solver, set_operating_conditions,
-initialize, solve_initial
+Execution order: build, set_operating_conditions, initialize,
+set_solver, solve_initial
 Total plan items: 7
 Confirm this plan and choose function-by-function or one-shot mode."
 
@@ -113,15 +114,10 @@ may differ from the order printed by `fi-steps`.
 
 Documentation: docs/usage.md in the flowsheet-inspector-lib repo.
 
-If a function's purpose does not perfectly match any valid name,
-assign it to the closest valid name anyway — do not invent custom
-names. The tool will reject anything not returned by fi-steps.
-
-If a function genuinely does not fit any valid purpose, flag this to
-the user explicitly: "This function doesn't match any standard step
-name. The closest fit is [name], but note this may not be fully
-accurate. Confirm this is acceptable, or let me know how you'd like
-it handled."
+If no valid name accurately describes a phase, choose the closest
+valid name from its behavior. Show it as a recommended compatibility
+mapping with one plain-language explanation in the normal plan. Do not
+ask the user to design the mapping, and never silently combine phases.
 
 ## CRITICAL — Derive Execution Order from the Original Entrypoint
 
@@ -140,10 +136,8 @@ Before writing the wrapping plan:
    sections.
 4. Map each phase to a valid step name returned by `fi-steps`.
 5. Preserve the relative order of all original model-processing phases.
-6. Keep `build` first. Insert the wrapper-only `set_solver` immediately
-   after `build` and before the first solve. This is the only standard
-   ordering insertion unless the original already has a compatible
-   solver-setup phase.
+6. Keep `build` first. Represent the original initial solver setup as
+   `set_solver` at the same runtime boundary before its consuming solve.
 7. Exclude plain helpers from the runner sequence and include every
    decorated step exactly once.
 8. Show the mapped sequence in the wrapping plan and use that exact
@@ -167,16 +161,17 @@ FS = FlowsheetRunner(
 
 Do not use bare `FS = FlowsheetRunner()` for a multi-step wrapped
 flowsheet. If the original has no entry point, uses dynamic dispatch,
-or has an ambiguous execution order, stop and ask the user to confirm
-the intended order. Do not silently fall back to the installed default.
+or has an ambiguous execution order, show the best source-supported
+order with one plain-language reason in the plan. Do not ask the user
+to design the order or silently use the installed default.
 
 If multiple original functions logically belong to the same valid
 step name and duplicate decorated names are unsupported, do not give
 one function a misleading name merely to make it unique. Keep the
 original functions as plain helpers and create one wrapper-only
 decorated adapter that calls them in their original runtime order.
-Show that adapter in the plan. If no safe mapping is clear, ask the
-user to confirm the proposed handling.
+Show that adapter as the recommended handling in the normal plan with
+a plain-language reason.
 
 ## What Each Step Does
 
@@ -184,9 +179,9 @@ build — creates ConcreteModel, FlowsheetBlock, and all unit models.
 Stores the model in the selected context variable at the end. Never
 returns m.
 
-set_solver — creates IPOPT solver and stores it in the selected
-context variable. Always a separate step; never create SolverFactory
-inside another step.
+set_solver — creates the initial solver and stores it in the selected
+context variable. Later original solver changes follow the solver
+lifecycle rule below.
 
 set_operating_conditions — fixes all input variables with .fix() calls.
 This is where parameter changes happen.
@@ -210,6 +205,16 @@ setup_optimization — unfixes variables and adds an objective function.
 
 solve_optimization — solves the optimization problem.
 
+## Preserve Solver Lifecycle
+
+Trace each original solver creation or reconfiguration to the solve
+that consumes it. Use `set_solver` for the initial setup at its
+original boundary; keep later changes in their original phase and
+store the active solver in context. Preserve solver type, options,
+conditions, and solve arguments. Never invent, remove, consolidate,
+or reorder configurations. If the mapping is ambiguous, recommend the
+best source-supported mapping with a plain-language reason in the plan.
+
 ## Decision Tree — Which Steps to Include
 
 Does the flowsheet have an initialize function?
@@ -221,13 +226,13 @@ Does the flowsheet have costing?
 
 Does the flowsheet have an optimization objective?
 - Yes -> include setup_optimization and solve_optimization
-- No -> skip those steps
+- No -> do not add them automatically; show a recommended compatibility
+  mapping if a distinct phase has no accurate valid name
 
 Is it a simple simulation?
 - Yes -> include only the steps present in the original and preserve
-  their entry-point order. A common sequence is build, set_solver,
-  set_operating_conditions, set_scaling, initialize, solve_initial,
-  but omit absent phases and do not impose this example on the file.
+  their entry-point order, placing `set_solver` at the original
+  initial-solver boundary.
 
 Does the flowsheet have plain helper functions called from inside
 steps (e.g. report(m))?
@@ -278,9 +283,10 @@ body to decide:
 - function calls ctx.solver.solve() after unfixing -> "solve_optimization"
 
 Never assign a name not returned by fi-steps. If a function's purpose
-is ambiguous, propose the closest valid name and ask the user to
-confirm it. For duplicate-purpose phases, use one decorated adapter
-that calls the original helpers in runtime order.
+is ambiguous, choose the closest valid name from its behavior and
+explain the recommended compatibility mapping in the normal plan. Do
+not ask the user to design it. For duplicate-purpose phases, use one
+decorated adapter that calls the original helpers in runtime order.
 
 Step naming and step ordering are separate decisions. Use `fi-steps`
 to validate the name, then place that name according to the original
@@ -318,7 +324,9 @@ as plain functions called from inside build.
 - never change any flowsheet logic
 - preserve the runtime order of the original entry point
 - only add decorators, imports, and context handling
-- always make a separate set_solver step
+- always make a separate set_solver step for the initial solver
+- place set_solver at the original initial-solver setup boundary
+- preserve later original solver changes before their consuming solve
 - always pass the mapped order explicitly to
   `FlowsheetRunner(steps=(...))`
 - never create a new SolverFactory inside solve steps
@@ -346,10 +354,14 @@ as plain functions called from inside build.
   does not determine the correct order for a particular flowsheet
 - reading definition order: derive runtime order from `main()` or the
   equivalent entry point, not from where functions appear in the file
+- flattening solver setup: do not move later solver changes into the
+  initial `set_solver` step or apply one solver configuration to all solves
+- silent phase mapping: do not rename or combine a distinct phase
+  without explaining the recommended mapping in the normal plan
 - dropping lines: always compare wrapped output against original
   line by line before writing to file
-- forgetting context model access: every step except build needs the
-  model from the selected context variable as its first line
+- forgetting context model access: every model-using step except build
+  needs the model from the selected context variable as its first line
 - wrapping helper functions: add_property_packages, add_units,
   connect_units inside build do NOT get @FS.step — they stay as
   plain functions unless using substep pattern

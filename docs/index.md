@@ -6,6 +6,7 @@ title: Flowsheet Inspector Library Documentation
 :hidden:
 
 usage
+skills
 usage_nb
 api
 reference

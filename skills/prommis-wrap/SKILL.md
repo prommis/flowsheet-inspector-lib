@@ -92,6 +92,7 @@ Determine and report:
 - does it have an optimization objective
 - what execution sequence is used by `main()` or the equivalent
   entry point
+- solver lifecycle: each creation or reconfiguration and its consuming solve
 - which environment is needed based on the original flowsheet imports
 
 Detect the environment before adding wrapper imports. Ignore the
@@ -131,6 +132,12 @@ Show the derived execution order immediately below the plan table as
 plan information. Do not count it as a separate writable item because
 the same order is already encoded in the runner-setup item.
 
+If no valid step name accurately describes an original phase, choose
+the closest valid name from the phase behavior. Show it as a
+recommended compatibility mapping with one plain-language explanation
+in the normal plan. Do not ask the user to design the mapping, and
+never silently combine distinct phases.
+
 Count all writable items explicitly and state the total before asking
 for confirmation. Verify the count matches the table before proceeding.
 
@@ -160,11 +167,11 @@ item-by-item confirmations, then run the full verification checklist.
 
 Always instantiate the runner with the exact approved order:
 `FS = FlowsheetRunner(steps=(...))` or
-`_FS = FlowsheetRunner(steps=(...))`. Keep `build` first, insert the
-wrapper-only `set_solver` immediately after `build` and before the
-first solve, and preserve the relative order of all original
-model-processing phases. Never use bare `FlowsheetRunner()` for a
-multi-step wrapped flowsheet.
+`_FS = FlowsheetRunner(steps=(...))`. Keep `build` first, place the
+wrapper-only `set_solver` at the original initial-solver setup
+boundary before its consuming solve, and preserve the relative order
+of all original model-processing phases. Never use bare
+`FlowsheetRunner()` for a multi-step wrapped flowsheet.
 
 While wrapping each @FS.step function, immediately check the step
 name against fi-steps output before sending the response. Fix it
@@ -250,9 +257,20 @@ only see clean stage-by-stage output.
 - never change any flowsheet logic
 - preserve the runtime order of the original entry point
 - only add decorators, imports, and context handling
-- always make a separate set_solver step
-- keep build first and insert the wrapper-only set_solver immediately
-  after build and before the first solve
+- always make a separate set_solver step for the initial solver
+- place set_solver at the original initial-solver setup boundary
+  before its consuming solve
+- preserve every later solver creation or reconfiguration in the
+  original phase before its consuming solve, storing the active solver
+  in context
+- preserve solver type, options, conditions, and solve arguments;
+  never invent, remove, or consolidate solver configurations
+- if the solver-to-solve mapping is ambiguous, recommend the best
+  source-supported mapping with a plain-language reason in the plan
+- if no valid step name accurately fits a phase, choose the closest
+  valid name from its behavior and explain the recommended
+  compatibility mapping in the normal plan; do not ask the user to
+  design it or silently combine distinct phases
 - always pass the approved mapped order explicitly to
   FlowsheetRunner(steps=(...))
 - never use bare FlowsheetRunner() for a multi-step wrapped flowsheet

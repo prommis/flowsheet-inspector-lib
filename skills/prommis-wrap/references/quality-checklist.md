@@ -6,6 +6,7 @@
 - [Plan completeness](#step-0-plan-completeness-check)
 - [Valid step names](#step-05-valid-step-name-check)
 - [Execution order](#step-075-execution-order-check)
+- [Solver lifecycle](#step-09-solver-lifecycle-parity-check)
 - [Source accounting](#step-1-source-accounting-check)
 - [Source preservation](#step-2-normalized-source-preservation-check)
 - [Imports](#step-3-import-check)
@@ -53,10 +54,11 @@ Check every @FS.step("name") in the wrapped file against that list
 one by one.
 
 If any step name is not on the list, it WILL cause a KeyError when
-the Flowsheet Inspector tries to load the file. Stop immediately,
-propose the closest valid name, and ask the user to confirm it before
-changing an already approved mapping. After changing the plan and
-wrapped file, rerun Steps 0.5 and 0.75.
+the Flowsheet Inspector tries to load the file. Stop immediately and
+choose the closest valid name from the phase behavior. If this changes
+the approved plan, show the recommended compatibility mapping with one
+plain-language explanation in the normal plan. Do not ask the user to
+design it. Then rerun Steps 0.5 and 0.75.
 
 Never check against a hardcoded list — always use fi-steps output
 since names may change between versions.
@@ -70,8 +72,9 @@ entry point, following any orchestration function it calls. Map each
 original phase to its approved wrapped step name.
 
 Construct the expected wrapped order by preserving the relative order of
-all original phases, keeping `build` first, and inserting the wrapper-only
-`set_solver` immediately after `build` and before the first solve.
+all original phases, keeping `build` first, and placing the wrapper-only
+`set_solver` at the original initial-solver setup boundary before its
+consuming solve.
 
 Read the tuple passed to `FlowsheetRunner(steps=(...))` in the wrapped file
 and compare it position by position against that expected mapped order.
@@ -81,6 +84,8 @@ The check passes only if:
 - every planned step appears exactly once
 - no unplanned step appears
 - every step is in the expected position
+- every non-exact step-name mapping matches the recommended mapping
+  confirmed through the normal plan
 
 Do not infer execution order from function-definition order, decorator
 order, or `fi-steps` output. A bare `FlowsheetRunner()` is an automatic
@@ -88,9 +93,20 @@ failure for a multi-step wrapped flowsheet.
 
 If the sequences differ, stop and correct the `steps=(...)` tuple before
 continuing. Do not move function bodies merely to make their file order
-match. If the original entry point is missing or ambiguous, stop and ask
-the user to confirm the intended order; do not approve a guessed order.
+match. If the original entry point is missing or ambiguous, return to
+planning with the best source-supported order and one plain-language
+reason. Do not ask the user to design the order.
 
+## Step 0.9: Solver Lifecycle Parity Check
+
+Map each original solve to the solver state immediately before it. The
+wrapped file must preserve the solver type, options, conditions, solve
+arguments, and any later reconfiguration before the same consuming
+solve. The initial `set_solver` must remain at the original solver
+setup boundary. Do not invent, remove, consolidate, or reorder
+configurations. If the mapping is ambiguous, fail this check and return
+to planning with the best source-supported recommendation and one
+plain-language reason.
 
 ## Step 1: Source Accounting Check
 
@@ -101,6 +117,8 @@ wrapped file. Verify that:
   unchanged plain helper
 - every inline model-processing phase from the original entry point
   appears exactly once in a wrapped step
+- no distinct phase is renamed or combined without the recommended
+  compatibility mapping recorded in the normal plan
 - every wrapper-only function, such as `set_solver` or a
   duplicate-purpose adapter, is identified separately
 - no original function or inline phase is missing or duplicated
@@ -148,10 +166,12 @@ should have been removed.
 
 ## Step 4: Context Check
 
-For every step except build:
+For every step that uses the model except build:
 - the first executable line must get the model from the selected
   context variable
-- no new local `SolverFactory()` calls are allowed
+- solve steps must not create or reconfigure a solver
+- any later original solver setup must stay in its approved preceding
+  phase and store the active solver in context
 - solve calls must use the solver and `tee` setting from that same
   context variable
 
@@ -221,15 +241,16 @@ Read the file, check what is already correct, identify what is
 missing or wrong, fix only those parts directly in the file.
 
 ### If a step name is not on the fi-steps list:
-Stop immediately. Propose the closest valid name and ask the user to
-confirm it before changing an already approved mapping. After the
-change, rerun Steps 0.5 and 0.75.
+Stop immediately. Choose the closest valid name from the phase
+behavior. If the plan changes, show the recommended compatibility
+mapping with one plain-language explanation in the normal plan. Do not
+ask the user to design it. Then rerun Steps 0.5 and 0.75.
 
 ### If the wrapped execution order differs from the original:
 Stop immediately. Re-extract the original entry-point call sequence,
-map it to the approved step names, insert the wrapper-only `set_solver`
-in its required position, and correct only the runner's `steps=(...)`
-tuple. Re-run Steps 0.5 and 0.75 before continuing.
+map it to the approved step names, place the wrapper-only `set_solver`
+at the original initial-solver boundary, and correct only the runner's
+`steps=(...)` tuple. Re-run Steps 0.5 and 0.75 before continuing.
 
 ### If Stage 3 is reached before the writing gate is met:
 Stop immediately. Identify the missing plan items and finish them

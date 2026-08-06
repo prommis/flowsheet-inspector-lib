@@ -1,6 +1,6 @@
 ---
 name: prommis-change-value
-description: Finds and changes a .fix() parameter value in a PrOMMiS/IDAES flowsheet from a plain English instruction. TRIGGER when: user wants to change, set, adjust, or modify any operating condition or parameter value in a flowsheet. DO NOT TRIGGER when: user wants to wrap a flowsheet, understand a solver error, or find an import path.
+description: "Finds and changes a .fix() parameter value in a PrOMMiS/IDAES flowsheet from a plain English instruction. TRIGGER when: user wants to change, set, adjust, or modify any operating condition or parameter value in a flowsheet. DO NOT TRIGGER when: user wants to wrap a flowsheet, understand a solver error, or find an import path."
 compatibility: Requires the same conda environment as the flowsheet being modified — idaes-fi for flowsheets importing from prommis or idaes_fi, prommis-dev for flowsheets importing from idaes_examples.
 metadata:
   author: Tanushree Subramanian
