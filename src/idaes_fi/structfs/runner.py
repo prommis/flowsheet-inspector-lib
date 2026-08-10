@@ -409,7 +409,7 @@ class Runner:
                 _log.error(
                     f"{action_name} failed in 'before_run' (no other actions will be run)"
                 )
-                where = action_name + ".after_run"
+                where = action_name + ".before_run"
                 self._failed = (where, err)
                 self._actions_failed[where] = err
                 break  # one failure => all failure
@@ -719,7 +719,13 @@ class Runner:
                 if ok:
                     self._step_end(name)
                 else:
-                    self._failed = (name, run_err)
+                    if self._failed:
+                        _log.error(
+                            f"Step failed: {name}: "
+                            "multiple failures, only first will be reported"
+                        )
+                    else:
+                        self._failed = (name, run_err)
                     self._step_failed(name, run_err)
                 return result
 
@@ -754,6 +760,11 @@ class Runner:
                     ok, result, run_err = False, None, err
                 if ok:
                     self._substep_end(base, name)
+                elif self._failed:
+                    _log.error(
+                        f"Substep failed: {base}.{name}: "
+                        "multiple failures, only first will be reported"
+                    )
                 else:
                     self._failed = (base + "." + name, run_err)
                 return result

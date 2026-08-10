@@ -276,3 +276,43 @@ def test_action_step_hook_failure_does_not_stop_run(tmp_path):
     assert isinstance(rn.failed_actions["boom.before_step"], RuntimeError)
     assert isinstance(rn.failed_actions["boom.after_step"], ValueError)
     assert rn.get_action("healthy").report() == {"example": True}
+
+
+@pytest.mark.unit
+def test_first_substep_failure_is_reported(tmp_path):
+    """Regression: when a substep fails, the step function keeps going (the
+    wrapper swallows the exception and returns None), so later substeps often
+    fail too with follow-on errors. Previously each failure overwrote
+    `_failed`, so the reported error was the last cascade failure instead of
+    the root cause."""
+    rn = Runner(("a", "a.one", "a.two", "b"))
+    rn.set_report_db(dbfile=tmp_path / "test_runner_cascade.sqlite")
+    calls = []
+
+    @rn.step("a")
+    def step_a(ctx):
+        one()
+        two()
+
+    @rn.substep("a", "one")
+    def one():
+        calls.append("one")
+        assert 1 == 0
+
+    @rn.substep("a", "two")
+    def two():
+        calls.append("two")
+        raise AttributeError("cascade failure caused by 'one' not finishing")
+
+    @rn.step("b")
+    def step_b(ctx):
+        calls.append("b")
+
+    rn.run_steps()
+
+    # both substeps ran, then the run halted before step b
+    assert calls == ["one", "two"]
+    assert rn.failed
+    where, err = rn._failed
+    assert where == "a.one"
+    assert isinstance(err, AssertionError)
