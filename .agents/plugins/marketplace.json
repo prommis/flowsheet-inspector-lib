@@ -1,0 +1,20 @@
+{
+  "name": "prommis",
+  "interface": {
+    "displayName": "PrOMMiS Plugins"
+  },
+  "plugins": [
+    {
+      "name": "prommis-skills",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
