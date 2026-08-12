@@ -59,24 +59,23 @@ file.
 ## Core Concepts
 
 **FlowsheetRunner**: tracks each step, saves results to a database,
-generates diagrams for the VS Code extension. Its explicit `steps=`
-sequence controls execution order; function-definition order and
-decorator order do not.
+generates diagrams for the VS Code extension. Instantiate it as
+`FS = FlowsheetRunner()` and do not pass an explicit `steps=(...)`
+sequence.
 
 **@FS.step**: decorator placed above a function to label it as a
-named step so the inspector knows about it. Step names must be valid
-for the installed idaes-fi version. Run `fi-steps --format text` in
-the terminal to get the current list. If it is unavailable in the
-current shell, run
-`conda run -n <detected-environment> fi-steps --format text`.
-Use the output only to validate names, not to choose execution order.
-Do not ask the user to run either command.
+named step so the inspector knows about it. Use constants from
+`idaes_fi.structfs.common.Steps`, not string literals. For example,
+use `@FS.step(Steps.build)`, not quoted string step names.
 
 **Context**: shared object passed between steps so they can all
 access the model, solver, and results.
 
-**context.model**: where the flowsheet model lives inside context,
-every step grabs it from here.
+**context.model**: where the flowsheet model lives inside context.
+Only steps that actually use the model should read it with
+`m = ctx.model`. Wrapper-only steps like `set_solver` must not add
+`m = ctx.model` unless the original solver setup actually used the
+model.
 
 ## Stage 1: Understand the Flowsheet
 
@@ -90,8 +89,6 @@ Determine and report:
 - does it have an initialize function
 - does it have costing
 - does it have an optimization objective
-- what execution sequence is used by `main()` or the equivalent
-  entry point
 - solver lifecycle: each creation or reconfiguration and its consuming solve
 - which environment is needed based on the original flowsheet imports
 
@@ -102,19 +99,13 @@ Use these rules:
 - otherwise, if it imports `prommis`, `idaes_fi`, or plain `idaes`,
   use `idaes-fi`
 
-Run `fi-steps --format text` in the terminal to get the valid step
-names for the installed version before naming any steps in the plan.
-If it is unavailable, run it through the detected conda environment.
-Treat the result as a set of allowed names only.
-
-Derive runtime order from the original `if __name__ == "__main__"`
-block and the orchestration function it calls. If the entry point is
-missing, dynamically dispatched, or ambiguous, stop and ask the user
-to confirm the intended order instead of using the runner default.
+Read the original `if __name__ == "__main__"` block and the
+orchestration function it calls to understand which model-building,
+initialization, solving, costing, and optimization phases exist.
 
 See references/wrapping-guide.md for the full decision tree on
-which steps to include, how to name them, and how to derive their
-execution order.
+which steps to include, how to name them, and how to handle solver
+setup.
 
 ## Stage 2: Plan, Approve, Then Wrap
 
@@ -122,15 +113,14 @@ Always announce: "Stage 2 wrapping plan."
 
 Show the user a wrapping plan before touching anything. The plan
 must list every item that will appear in the wrapped file:
-- imports and runner setup with the derived execution order encoded
-  in an explicit `steps=(...)` sequence
+- imports and runner setup with `FlowsheetRunner`, `Context`,
+  `Steps`, and bare `FS = FlowsheetRunner()`
 - every @FS.step function with its step name
 - every plain helper function
 - the __main__ block
 
-Show the derived execution order immediately below the plan table as
-plan information. Do not count it as a separate writable item because
-the same order is already encoded in the runner-setup item.
+Do not include or ask the user to approve an explicit runner
+`steps=(...)` sequence.
 
 If no valid step name accurately describes an original phase, choose
 the closest valid name from the phase behavior. Show it as a
@@ -165,18 +155,11 @@ In one-shot mode, the approved plan is the content confirmation.
 Write the complete wrapped file in one pass without asking for
 item-by-item confirmations, then run the full verification checklist.
 
-Always instantiate the runner with the exact approved order:
-`FS = FlowsheetRunner(steps=(...))` or
-`_FS = FlowsheetRunner(steps=(...))`. Keep `build` first, place the
-wrapper-only `set_solver` at the original initial-solver setup
-boundary before its consuming solve, and preserve the relative order
-of all original model-processing phases. Never use bare
-`FlowsheetRunner()` for a multi-step wrapped flowsheet.
+Always instantiate the runner without an explicit step list:
+`FS = FlowsheetRunner()` or `_FS = FlowsheetRunner()`.
 
-While wrapping each @FS.step function, immediately check the step
-name against fi-steps output before sending the response. Fix it
-if it's not valid; do not wait until stage 3. Name validation must
-not change the approved execution order.
+While wrapping each @FS.step function, use `Steps.<name>` constants
+from `idaes_fi.structfs.common`. Do not write string step names.
 
 Once the plan and mode are confirmed and the filename is known,
 announce: "Stage 2 wrapping in progress."
@@ -199,10 +182,6 @@ Run every check in references/quality-checklist.md and show each
 one by name with its explicit pass or fail result not a summary
 claim like "all checks passed."
 
-The checklist must compare the wrapped runner sequence against the
-execution order derived from the original entry point. Do not deliver
-a wrapped file whose steps are valid but ordered differently.
-
 After all checks pass, confirm to the user that the wrapped file
 is complete. Tell the user:
 - the exact filename and folder it was saved to
@@ -224,7 +203,6 @@ After wrapping, suggest these skills as next steps:
 
 Never show the user:
 - internal file reading operations
-- fi-steps terminal command being run
 - conda environment detection reasoning
 - intermediate wrapping steps or internal checks
 - step name validation reasoning
@@ -233,7 +211,6 @@ Never show the user:
 Only show the user:
 - the stage announcements
 - the wrapping plan table
-- the execution order derived from the original entry point
 - in function-by-function mode, each wrapped item with a confirmation question
 - in one-shot mode, no item-by-item content confirmation
 - the verification checklist results by name with pass or fail
@@ -271,16 +248,17 @@ only see clean stage-by-stage output.
   valid name from its behavior and explain the recommended
   compatibility mapping in the normal plan; do not ask the user to
   design it or silently combine distinct phases
-- always pass the approved mapped order explicitly to
-  FlowsheetRunner(steps=(...))
-- never use bare FlowsheetRunner() for a multi-step wrapped flowsheet
+- always instantiate the runner as `FlowsheetRunner()` with no
+  explicit `steps=(...)` sequence
+- import `Steps` from `idaes_fi.structfs.common`
+- always use `@FS.step(Steps.<name>)`; never use string step names
+- do not add `m = ctx.model` to `set_solver` unless the original
+  solver setup actually used the model
 - never create a new SolverFactory inside solve steps
 - always use `tee=<context-variable>["tee"]`, not `tee=True`
 - never drop a copied source line except when making an explicitly
   permitted wrapper replacement
 - keep all original comments that still apply
-- never use a step name not returned by fi-steps --format text
-- use fi-steps only to validate names, never to choose execution order
 - always write files directly never ask the user to copy and paste
 - always ask the user what to name the wrapped file before creating it
 - ALWAYS create the wrapped file first before writing any content
@@ -293,9 +271,8 @@ only see clean stage-by-stage output.
 ## Common Pitfalls
 
 See references/wrapping-guide.md for the full pitfalls list,
-including the most critical ones: relying on the default runner
-order, using an invalid step name, and claiming verification on
-unseen content.
+including the most critical ones: using explicit runner step lists,
+using string step names, and claiming verification on unseen content.
 
 ## Deviation Handling
 
@@ -304,20 +281,14 @@ it directly and complete stage 1 from the file. Ask the user about its
 functions, costing, or optimization only when the file cannot be read
 or those details cannot be determined safely.
 
-If the original entry point is missing or its execution order cannot
-be determined safely, show the candidate mapped steps and ask the
-user to confirm their intended order. Never substitute the order
-printed by fi-steps or the bare FlowsheetRunner default.
-
 If a function was written incorrectly to the file, fix it directly
 in the wrapped file and show the user only the corrected lines.
 Never touch the original file.
 
 ## Reference Files
 
-- references/wrapping-guide.md execution-order derivation, decision trees,
-  how to get valid step names via fi-steps, naming rules,
-  common pitfalls, file output instructions
+- references/wrapping-guide.md decision trees, step constants,
+  naming rules, common pitfalls, file output instructions
 - references/examples.md full example conversation and
   before/after flash flowsheet example
 - references/quality-checklist.md verification steps,

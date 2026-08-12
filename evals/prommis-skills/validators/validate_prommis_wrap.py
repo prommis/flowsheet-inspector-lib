@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import py_compile
+import re
 from pathlib import Path
 
 
@@ -17,14 +18,30 @@ EXPECTED_STEPS = (
 
 REQUIRED_SNIPPETS = (
     "from idaes_fi.structfs.fsrunner import FlowsheetRunner, Context",
-    "FlowsheetRunner",
+    "from idaes_fi.structfs.common import Steps",
+    "FlowsheetRunner()",
 )
 
 
+STRING_STEP_RE = re.compile(r"@\w+\.step\(\s*['\"]")
+EXPLICIT_STEPS_RE = re.compile(r"FlowsheetRunner\s*\(\s*steps\s*=")
+
+
 def has_step_decorator(source: str, step_name: str) -> bool:
-    double_quoted = f'@FS.step("{step_name}")'
-    single_quoted = f"@FS.step('{step_name}')"
-    return double_quoted in source or single_quoted in source
+    pattern = re.compile(rf"@\w+\.step\(\s*Steps\.{re.escape(step_name)}\s*\)")
+    return bool(pattern.search(source))
+
+
+def set_solver_has_unused_model(source: str) -> bool:
+    match = re.search(
+        r"def\s+set_solver\s*\([^)]*\)\s*:\s*(?P<body>.*?)(?=^@\w+\.step|^def\s+|\Z)",
+        source,
+        flags=re.DOTALL | re.MULTILINE,
+    )
+    if not match:
+        return False
+    body = match.group("body")
+    return "m = ctx.model" in body or "m = context.model" in body
 
 
 def validate_python_syntax(path: Path, failures: list[str]) -> None:
@@ -54,9 +71,18 @@ def validate_workspace(workspace: Path, input_file: str, output_file: str) -> li
         if snippet not in source:
             failures.append(f"Missing required snippet: {snippet}")
 
+    if EXPLICIT_STEPS_RE.search(source):
+        failures.append("Runner must use bare FlowsheetRunner() without an explicit steps argument")
+
+    if STRING_STEP_RE.search(source):
+        failures.append("Step decorators must use Steps constants, not string literals")
+
     for step_name in EXPECTED_STEPS:
         if not has_step_decorator(source, step_name):
-            failures.append(f"Missing @FS.step decorator for: {step_name}")
+            failures.append(f"Missing @FS.step(Steps.{step_name}) decorator")
+
+    if set_solver_has_unused_model(source):
+        failures.append("set_solver must not include unused m = ctx.model")
 
     return failures
 

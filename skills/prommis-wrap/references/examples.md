@@ -11,9 +11,9 @@
 
 ## Example Conversation
 
-This is what a complete wrapping conversation should look like.
-Copied flowsheet code stays formatted like the original except for
-the permitted wrapper transformations described in `SKILL.md`.
+This is what a complete wrapping conversation should look like. Copied
+flowsheet code stays formatted like the original except for the permitted
+wrapper transformations described in `SKILL.md`.
 
 ### Function-by-Function Mode
 
@@ -22,24 +22,19 @@ User: "wrap flash_flowsheet.py"
 AI: "Stage 1 reading flash_flowsheet.py.
 
 I found 4 functions. It has initialization, no costing, and no
-optimization objective. The original execution order is build_model,
-set_operating_conditions, init_model, solve. The required environment
-is idaes-fi."
+optimization objective. The required environment is idaes-fi."
 
 AI: "Stage 2 wrapping plan.
 
 | # | Plan item | Wrapped result |
 |---|-----------|----------------|
-| 1 | imports and runner setup | add FlowsheetRunner, Context, and the explicit ordered steps sequence |
-| 2 | build_model | `@FS.step('build')` |
-| 3 | set_solver | add wrapper-only `@FS.step('set_solver')` |
-| 4 | set_operating_conditions | `@FS.step('set_operating_conditions')` |
-| 5 | init_model | `@FS.step('initialize')` |
-| 6 | solve | `@FS.step('solve_initial')` |
+| 1 | imports and runner setup | add FlowsheetRunner, Context, Steps, and FS = FlowsheetRunner() |
+| 2 | build_model | `@FS.step(Steps.build)` |
+| 3 | set_solver | add wrapper-only `@FS.step(Steps.set_solver)` |
+| 4 | set_operating_conditions | `@FS.step(Steps.set_operating_conditions)` |
+| 5 | init_model | `@FS.step(Steps.initialize)` |
+| 6 | solve | `@FS.step(Steps.solve_initial)` |
 | 7 | __main__ block | `FS.run_steps()` |
-
-Execution order: build, set_solver, set_operating_conditions,
-initialize, solve_initial
 
 Total plan items: 7
 
@@ -59,21 +54,21 @@ User: "flash_flowsheet_wrapped.py"
 AI: "Stage 2 wrapping in progress.
 
 Imports and runner setup:
-[shows original imports plus FlowsheetRunner, Context, and the
-approved explicit steps sequence]
+[shows original imports plus FlowsheetRunner, Context, Steps, and
+FS = FlowsheetRunner()]
 
 Confirm to write this item."
 
 User: "Confirmed."
 
-AI: "build_model wrapped as `@FS.step('build')`:
+AI: "build_model wrapped as `@FS.step(Steps.build)`:
 [shows only the wrapped build_model item]
 
 Confirm to write this item."
 
 User: "Confirmed."
 
-AI: "Wrapper-only `@FS.step('set_solver')`:
+AI: "Wrapper-only `@FS.step(Steps.set_solver)`:
 [shows only set_solver]
 
 Confirm to write this item."
@@ -85,11 +80,11 @@ AI: "Stage 3 running verification checklist.
 
 - Mode-Specific Writing Gate: PASS
 - Plan Completeness Check: PASS
-- Valid Step Name Check: PASS
-- Execution Order Check: PASS
+- Runner and Step Constants Check: PASS
 - Source Accounting Check: PASS
 - Normalized Source Preservation Check: PASS
 - Import Check: PASS
+- Solver Lifecycle Parity Check: PASS
 - Context Check: PASS
 - Bottom of File Check: PASS
 - Syntax Check: PASS
@@ -120,11 +115,11 @@ AI: "Stage 3 running verification checklist.
 
 - Mode-Specific Writing Gate: PASS
 - Plan Completeness Check: PASS
-- Valid Step Name Check: PASS
-- Execution Order Check: PASS
+- Runner and Step Constants Check: PASS
 - Source Accounting Check: PASS
 - Normalized Source Preservation Check: PASS
 - Import Check: PASS
+- Solver Lifecycle Parity Check: PASS
 - Context Check: PASS
 - Bottom of File Check: PASS
 - Syntax Check: PASS
@@ -134,7 +129,7 @@ Written to flowsheet/flash_flowsheet_wrapped.py.
 Activate the required environment before running it:
 conda activate idaes-fi"
 
-## Flash Flowsheet — Before (original unwrapped version)
+## Flash Flowsheet -- Before (original unwrapped version)
 
 ```python
 from pyomo.environ import ConcreteModel, SolverFactory
@@ -187,7 +182,7 @@ if __name__ == "__main__":
     solve(m)
 ```
 
-## Flash Flowsheet — After (wrapped version)
+## Flash Flowsheet -- After (wrapped version)
 
 ```python
 from pyomo.environ import ConcreteModel, SolverFactory
@@ -200,18 +195,11 @@ from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import
 )
 from idaes.models.unit_models import Flash, Valve
 from idaes_fi.structfs.fsrunner import FlowsheetRunner, Context
+from idaes_fi.structfs.common import Steps
 
-FS = FlowsheetRunner(
-    steps=(
-        "build",
-        "set_solver",
-        "set_operating_conditions",
-        "initialize",
-        "solve_initial",
-    )
-)
+FS = FlowsheetRunner()
 
-@FS.step("build")
+@FS.step(Steps.build)
 def build_model(ctx: Context):
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -229,11 +217,11 @@ def build_model(ctx: Context):
     m.fs.valve_outlet = Port(extends=m.fs.valve.outlet)
     ctx.model = m
 
-@FS.step("set_solver")
+@FS.step(Steps.set_solver)
 def set_solver(ctx: Context):
     ctx.solver = SolverFactory("ipopt")
 
-@FS.step("set_operating_conditions")
+@FS.step(Steps.set_operating_conditions)
 def set_operating_conditions(ctx: Context):
     m = ctx.model
     m.fs.flash.inlet.flow_mol.fix(1)
@@ -244,12 +232,12 @@ def set_operating_conditions(ctx: Context):
     m.fs.flash.heat_duty.fix(0)
     m.fs.flash.deltaP.fix(0)
 
-@FS.step("initialize")
+@FS.step(Steps.initialize)
 def init_model(ctx: Context):
     m = ctx.model
     m.fs.flash.initialize(outlvl=idaeslog.INFO)
 
-@FS.step("solve_initial")
+@FS.step(Steps.solve_initial)
 def solve(ctx: Context):
     m = ctx.model
     ctx["results"] = ctx.solver.solve(m, tee=ctx["tee"])
@@ -261,10 +249,8 @@ if __name__ == "__main__":
 ## What Changed
 
 - added `from idaes_fi.structfs.fsrunner import FlowsheetRunner, Context`
-- derived `build`, `set_operating_conditions`, `initialize`, and
-  `solve_initial` order from the original `__main__` block
-- inserted the wrapper-only `set_solver` immediately after `build`
-- added the resulting explicit sequence with
-  `FS = FlowsheetRunner(steps=(...))`
-- added decorators and context handling without changing the copied
-  flowsheet logic
+- added `from idaes_fi.structfs.common import Steps`
+- added bare `FS = FlowsheetRunner()` with no explicit `steps=(...)`
+- added decorators using `Steps` constants
+- added context handling without changing copied flowsheet logic
+- added wrapper-only `set_solver` without an unused `m = ctx.model`
