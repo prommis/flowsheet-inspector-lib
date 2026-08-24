@@ -70,6 +70,12 @@ class SimpleFlowsheetRunner(BaseFlowsheetRunner):
         self.add_action(ActionNames.STREAM_TABLE.value, StreamTable)
         self.add_action(ActionNames.TIMINGS.value, Timer)
 
+    def set_file(self, path: Path):
+        """Set path to flowsheet file, after construction."""
+        from .actions import GitHash  # pylint: disable=C0415
+
+        self.add_action(ActionNames.GIT_HASH.value, GitHash, path)
+
 
 # Global flowsheet runner, will create as needed
 _FS = SimpleFlowsheetRunner()
@@ -116,8 +122,11 @@ class _Wrapper:
                 if "filename" not in main_kw:
                     main_file = inspect.getfile(main_fn)
                     main_file_path = Path(main_file).absolute()
+                    _FS.set_file(main_file_path)
                     main_kw["filename"] = main_file_path.name
                     main_kw["filedir"] = str(main_file_path.parent)
+                else:
+                    _FS.set_file(Path(main_kw["filename"]).absolute())
                 # allow user to pass in alternate database file to main()
                 if "dbfile" in kwargs:
                     _FS.set_report_db(dbfile=kwargs.pop("dbfile"))

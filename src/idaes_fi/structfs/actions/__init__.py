@@ -23,6 +23,7 @@ from importlib import import_module
 __all__ = [
     "CaptureSolverOutput",
     "Diagnostics",
+    "GitHash",
     "GetSolverResults",
     "MermaidDiagram",
     "ModelVariables",
@@ -38,6 +39,7 @@ __all__ = [
 _EXPORT_MODULES = {
     "CaptureSolverOutput": "solver",
     "Diagnostics": "solver",
+    "GitHash": "git_hash",
     "GetSolverResults": "solver",
     "MermaidDiagram": "mermaid_diagram",
     "ModelVariables": "model_variables",

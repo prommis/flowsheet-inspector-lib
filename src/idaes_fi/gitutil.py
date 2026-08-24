@@ -33,10 +33,11 @@ def git_repo_root(file_path: str) -> Path | None:
         Directory, or None if there was an error from the Git command
     """
     path = Path(file_path).resolve()
+    directory = str(path if path.is_dir() else path.parent)
 
     try:
         root = subprocess.check_output(
-            ["git", "-C", str(path.parent), "rev-parse", "--show-toplevel"],
+            ["git", "-C", directory, "rev-parse", "--show-toplevel"],
             text=True,
         ).strip()
     except subprocess.CalledProcessError:
@@ -55,10 +56,11 @@ def git_head_hash(file_path: str | Path) -> str | None:
         Hash, or None if there was an error from the Git command
     """
     path = Path(file_path).resolve()
+    directory = str(path if path.is_dir() else path.parent)
 
     try:
         hash = subprocess.check_output(
-            ["git", "-C", str(path.parent), "rev-parse", "HEAD"],
+            ["git", "-C", directory, "rev-parse", "HEAD"],
             text=True,
         ).strip()
     except subprocess.CalledProcessError:
