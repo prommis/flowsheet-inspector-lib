@@ -15,7 +15,10 @@
 # publicly and display publicly, and to permit other to do so.
 #
 #################################################################################
-"""Git hash action for flowsheet runner runs."""
+"""
+Action to get hash of Git repository containing the flowsheet,
+if any and the 'git' command is available.
+"""
 
 # stdlib
 import inspect
@@ -28,9 +31,14 @@ from pydantic import BaseModel
 from ...gitutil import git_head_hash
 from ..action_base import Action
 
+__author__ = "Dan Gunter (LBNL)"
+
 
 class GitHash(Action):
-    """Capture the HEAD hash of the repository containing the given path."""
+    """Get the hash of the Git repo, if any, in which the provided
+    file is contained. No error or warning is produced if the Git
+    repo is not present, the git command fails, the file path does not exist, etc.
+    """
 
     class Report(BaseModel):
         """Report returned by :meth:`report`."""
@@ -44,7 +52,7 @@ class GitHash(Action):
 
     def after_run(self):
         """Capture the repository hash after a run completes."""
-        if self._path is not None:
+        if self._path is not None and self._path.exists():
             self._hash = git_head_hash(self._path)
 
     def report(self) -> Report:
