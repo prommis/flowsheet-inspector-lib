@@ -16,8 +16,7 @@
 #
 #################################################################################
 """
-Action to get hash of Git repository containing the flowsheet,
-if any and the 'git' command is available.
+Action to get hash of Git repository containing the flowsheet.
 """
 
 # stdlib
@@ -47,7 +46,7 @@ class GitHash(Action):
 
     def __init__(self, runner, file_path: Path | None = None, **kwargs):
         super().__init__(runner, **kwargs)
-        self._path = file_path
+        self._path = Path(file_path)
         self._hash: str | None = None
 
     def after_run(self):
