@@ -34,8 +34,10 @@ class StreamTable(Action):
         index: list[str]  # name of each row, i.e. the stream name
         units: list[str]  # units for each row
         columns: list[str]  # column header: <stream-name-1>, <stream-name-2>, ...
-        #: rows, where each value is a tuple of the value and fixed/free/parameter/expression
-        data: list[list[tuple[float, str]]]
+        #: rows, where each value is a tuple of the value and fixed/free/parameter/expression.
+        #: When streams use different property packages, a variable may not exist for
+        #: every stream: missing cells are the string "-" and tags may be None.
+        data: list[list[tuple[float | None, str | None] | str]]
 
     def __init__(self, runner, **kwargs):
         assert isinstance(runner, BaseFlowsheetRunner)  # makes no sense otherwise
