@@ -30,7 +30,11 @@ import sys
 from types import FunctionType
 from typing import Sequence
 
+# stdlib (continued)
+import traceback
+
 # third-party
+from pydantic import ValidationError
 from pyomo.environ import ConcreteModel, SolverFactory
 from pyomo.environ import units as pyunits
 from idaes.core import FlowsheetBlock
@@ -567,14 +571,19 @@ def main(args=None):
         fs = run_flowsheet(
             args.name, report_db_file=args.db, test_db=(not args.skip_db_test), **kwargs
         )
+    except ValidationError:
+        # pydantic ValidationError subclasses ValueError; don't swallow it below
+        print("ERROR building report:", file=sys.stderr)
+        traceback.print_exc()
+        return 5
     except ValueError as err:
-        print(f"ERROR: {err}")
+        print(f"ERROR: {err}", file=sys.stderr)
         return 1
     except ModuleNotFoundError as err:
-        print(f"ERROR loading flowsheet module: {err}")
+        print(f"ERROR loading flowsheet module: {err}", file=sys.stderr)
         return 2
     except DBError as err:
-        print(f"ERROR opening/loading database: {err}")
+        print(f"ERROR opening/loading database: {err}", file=sys.stderr)
         return 3
 
     # unless the user requests, print solver output
@@ -583,7 +592,7 @@ def main(args=None):
         try:
             rpt = fs.get_report_db().get_last_report()
         except DBError as err:
-            print(f"ERROR: {err}")
+            print(f"ERROR: {err}", file=sys.stderr)
             return 4
         if rpt:
             solver_out_steps = rpt["actions"][ActionNames.SOLVER_OUTPUT.value]["output"]

@@ -38,6 +38,7 @@ def git_repo_root(file_path: str) -> Path | None:
         root = subprocess.check_output(
             ["git", "-C", str(path.parent), "rev-parse", "--show-toplevel"],
             text=True,
+            stderr=subprocess.DEVNULL,
         ).strip()
     except subprocess.CalledProcessError:
         return None
@@ -60,6 +61,7 @@ def git_head_hash(file_path: str | Path) -> str | None:
         hash = subprocess.check_output(
             ["git", "-C", str(path.parent), "rev-parse", "HEAD"],
             text=True,
+            stderr=subprocess.DEVNULL,
         ).strip()
     except subprocess.CalledProcessError:
         hash = None
