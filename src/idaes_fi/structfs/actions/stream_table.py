@@ -36,8 +36,9 @@ class StreamTable(Action):
         columns: list[str]  # column header: <stream-name-1>, <stream-name-2>, ...
         #: rows, where each value is a tuple of the value and fixed/free/parameter/expression.
         #: When streams use different property packages, a variable may not exist for
-        #: every stream: missing cells are the string "-" and tags may be None.
-        data: list[list[tuple[float | None, str | None] | str]]
+        #: every stream: missing cells are (None, None), and the type may be None when
+        #: the displayed quantity is not a Var/Param/Expression.
+        data: list[list[tuple[float | None, str | None]]]
 
     def __init__(self, runner, **kwargs):
         assert isinstance(runner, BaseFlowsheetRunner)  # makes no sense otherwise
@@ -58,7 +59,12 @@ class StreamTable(Action):
         # move units column to its own list
         dd["columns"] = dd["columns"][1:]  # delete first column of header
         dd["units"] = [str(r[0]) for r in dd["data"]]  # copy Units obj, convert to str
-        dd["data"] = [r[1:] for r in dd["data"]]  # delete 1st column of data
+        # delete 1st column of data and normalize missing cells ("-" placeholders
+        # from create_stream_table_ui) to (None, None) so every cell is a pair
+        dd["data"] = [
+            [c if isinstance(c, tuple) else (None, None) for c in r[1:]]
+            for r in dd["data"]
+        ]
 
         self._stream_table = dd
 
