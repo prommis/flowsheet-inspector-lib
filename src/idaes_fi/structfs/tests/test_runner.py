@@ -36,7 +36,7 @@ def say_hello(context):
     dude("yo")
 
 
-@simple.substep("hello", "dude")
+@simple.label("hello", "dude")
 def dude(s):
     print(f"{s}! this is called from hello, not directly by runner")
 
@@ -130,15 +130,15 @@ def test_add_bad_step():
 
     with pytest.raises(KeyError):
 
-        @simple.substep("bad", "sub")
+        @simple.label("bad", "sub")
         def do_bad2(ctx):
             return
 
-    # undefined step cannot have a substep
+    # undefined step cannot have a label
 
     with pytest.raises(ValueError):
 
-        @simple.substep("notrun-1", "sub")
+        @simple.label("notrun-1", "sub")
         def do_bad3(ctx):
             return
 

@@ -74,12 +74,12 @@ class Action(ABC):
         """
         return
 
-    def before_substep(self, step_name: str, substep_name: str):
+    def before_label(self, step_name: str, label_name: str):
         """Perform this action before the named sub-step.
 
         Args:
             step_name: Name of the step
-            substep_name: Name of the sub-step
+            label_name: Name of the sub-step
         """
         return
 
@@ -91,12 +91,12 @@ class Action(ABC):
         """
         return
 
-    def after_substep(self, step_name: str, substep_name: str):
+    def after_label(self, step_name: str, label_name: str):
         """Perform this action after the named sub-step.
 
         Args:
             step_name: Name of the step
-            substep_name: Name of the sub-step
+            label_name: Name of the sub-step
         """
         return
 
