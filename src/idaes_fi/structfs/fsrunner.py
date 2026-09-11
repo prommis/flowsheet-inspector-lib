@@ -24,6 +24,7 @@ in `FlowsheetRunner`.
 import argparse
 from copy import deepcopy
 from enum import Enum
+import inspect
 import logging
 from pathlib import Path
 import sys
@@ -342,6 +343,7 @@ class FlowsheetRunner(BaseFlowsheetRunner):
         """
         from .actions import (  # pylint: disable=C0415
             Timer,
+            GitHash,
             CaptureSolverOutput,
             GetSolverResults,
             ModelVariables,
@@ -353,6 +355,10 @@ class FlowsheetRunner(BaseFlowsheetRunner):
         )
 
         super().__init__(**kwargs)
+
+        caller = inspect.currentframe().f_back
+        caller_file = caller.f_globals.get("__file__") if caller else None
+
         dof_steps = [Steps.build, Steps.solve_initial, Steps.solve_optimization]
         # note: put solver_output first to re-enable stdout
         self.add_action(ActionNames.SOLVER_OUTPUT.value, CaptureSolverOutput)
@@ -364,6 +370,7 @@ class FlowsheetRunner(BaseFlowsheetRunner):
         self.add_action(ActionNames.SOLVER_RESULTS.value, GetSolverResults)
         self.add_action(ActionNames.STREAM_TABLE.value, StreamTable)
         self.add_action(ActionNames.TIMINGS.value, Timer)
+        self.add_action(ActionNames.GIT_HASH.value, GitHash, caller_file)
 
     def build(self, **kwargs):
         """Run just the build step"""

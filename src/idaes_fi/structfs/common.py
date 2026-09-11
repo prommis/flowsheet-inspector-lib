@@ -47,6 +47,7 @@ class ActionNames(Enum):
     SOLVER_RESULTS = "solver_results"
     STREAM_TABLE = "stream_table"
     TIMINGS = "timings"
+    GIT_HASH = "git_hash"
 
 
 class Steps:

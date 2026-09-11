@@ -230,9 +230,13 @@ class ReportDB:
             rpt_cols = self._all_columns(typed=True)
             stat_cols = (f"{nm} {ty}" for nm, ty in self.STAT_COL)
             exists = "IF NOT EXISTS " if exist_ok else ""
-            conn.execute(
-                f"CREATE TABLE {exists}{self.RPT_TABLE} ( {', '.join(rpt_cols)} );"
-            )
+            try:
+                conn.execute(
+                    f"CREATE TABLE {exists}{self.RPT_TABLE} ( {', '.join(rpt_cols)} );"
+                )
+            except sqlite3.OperationalError as err:
+                # this may occur if the DB file is readonly, therefore fails on first write
+                raise DBError(f"Cannot create table: {err}")
             conn.execute(
                 f"CREATE TABLE {exists}{self.STAT_TABLE} ( {', '.join(stat_cols)} );"
             )

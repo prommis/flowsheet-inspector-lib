@@ -17,6 +17,7 @@
 #################################################################################
 
 # stdlib
+from pathlib import Path
 import pprint
 import sys
 from types import SimpleNamespace
@@ -28,11 +29,11 @@ from pyomo.environ import units as pyunits
 from pyomo.opt import SolverResults, SolverStatus, TerminationCondition
 from pyomo.opt.results.container import ScalarData
 
-from .. import runner
 from . import flash_flowsheet, hda_flowsheet
 from ..actions import (
     MermaidDiagram,
     Timer,
+    GitHash,
     UnitDofChecker,
     StreamTable,
     CaptureSolverOutput,
@@ -40,6 +41,7 @@ from ..actions import (
     UnitModelReport,
 )
 from . import flash_flowsheet
+from ...gitutil import git_head_hash
 
 
 @pytest.fixture
@@ -83,6 +85,32 @@ def test_class_timer():
     for step in runner.list_steps():
         assert report.timings[step] >= 0
     assert report.run_time >= 0
+
+
+@pytest.mark.unit
+def test_git_hash_action():
+    file_path = Path(__file__)
+    action = GitHash(FakeRunner(), file_path)
+
+    assert action.report().hash is None
+
+    action.after_run()
+    hsh = action.report().hash
+    print(f"Got Git hash: {hsh}")
+    assert hsh == git_head_hash(file_path)
+
+
+@pytest.mark.unit
+def get_test_hash_action_bad(tmp_path):
+    # no such path
+    file_path = tmp_path / "foo"
+    action = GitHash(FakeRunner(), file_path)
+    action.after_run()
+    assert action.report().hash is None
+    # path but no git
+    action = GitHash(FakeRunner(), tmp_path)
+    action.after_run()
+    assert action.report().hash is None
 
 
 @pytest.mark.unit

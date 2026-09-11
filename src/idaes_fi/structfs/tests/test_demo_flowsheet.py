@@ -31,6 +31,7 @@ from ..runner import ReportDB
 from .demo_flowsheet_structured import FS
 from .demo_flowsheet_fi_main import main
 from ..common import ActionNames
+from idaes_fi.gitutil import git_head_hash
 
 
 @pytest.mark.unit
@@ -76,3 +77,12 @@ def _check_report_ok(db):
     print(f"last row: {last_row}")
     assert last_row["name"] == "Demo Flowsheet"
     assert bool(last_row["run_status"]) == True
+
+    _check_git_hash_report(actions[ActionNames.GIT_HASH.value])
+
+
+def _check_git_hash_report(data):
+    caller_file = Path(__file__)
+    rpt_hash = data["hash"]
+    caller_hash = git_head_hash(caller_file)
+    assert rpt_hash == caller_hash
