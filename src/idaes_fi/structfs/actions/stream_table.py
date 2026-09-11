@@ -35,7 +35,8 @@ class StreamTable(Action):
         units: list[str]  # units for each row
         columns: list[str]  # column header: <stream-name-1>, <stream-name-2>, ...
         #: rows, where each value is a tuple of the value and fixed/free/parameter/expression
-        data: list[list[tuple[float, str]]]
+        #: allow None for value (if variable is not present in this stream)
+        data: list[list[tuple[float | None, str | None]]]
 
     def __init__(self, runner, **kwargs):
         assert isinstance(runner, BaseFlowsheetRunner)  # makes no sense otherwise
@@ -47,7 +48,7 @@ class StreamTable(Action):
         # get streams
         streams = {}
         for component in self._runner.model.component_objects(Arc, descend_into=True):
-            streams[component.getname()] = component
+            streams[component.name] = component
 
         # create stream table using existing utility function
         df = create_stream_table_ui(streams)
@@ -56,9 +57,26 @@ class StreamTable(Action):
         # move units column to its own list
         dd["columns"] = dd["columns"][1:]  # delete first column of header
         dd["units"] = [str(r[0]) for r in dd["data"]]  # copy Units obj, convert to str
-        dd["data"] = [r[1:] for r in dd["data"]]  # delete 1st column of data
+        dd["data"] = self._convert_data(dd["data"])
 
         self._stream_table = dd
+
+    @classmethod
+    def _convert_data(
+        cls, data: list[list[tuple[float | None, str | None]]]
+    ) -> list[list[tuple[float | None, str | None]]]:
+        """Modify data to conform to expected format."""
+        return [
+            [
+                (
+                    (None, None)
+                    if val is None or isinstance(val, str)
+                    else (float(val), str(status))
+                )
+                for (val, status) in row[1:]
+            ]
+            for row in data
+        ]
 
     def report(self) -> Report:
         if self._stream_table:
