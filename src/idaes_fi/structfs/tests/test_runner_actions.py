@@ -227,7 +227,7 @@ def test_stream_table_action_report(tmp_path):
     assert report
     assert report.index[0].startswith("flow_mol")
     assert report.units[0] == "mole / second"
-    assert "s03" in report.columns
+    assert "fs.s03" in report.columns
     assert len(report.columns) == len(report.data[0])
     assert len(report.data) == len(report.index)
     v1 = report.data[0][0]
