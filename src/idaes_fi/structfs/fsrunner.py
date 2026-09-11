@@ -131,8 +131,8 @@ class BaseFlowsheetRunner(Runner):
     STEPS = (
         Steps.build,
         Steps.set_solver,
-        Steps.initialize,
         Steps.set_operating_conditions,
+        Steps.initialize,
         Steps.set_scaling,
         Steps.solve_initial,
         Steps.set_autoscaling,
@@ -147,12 +147,23 @@ class BaseFlowsheetRunner(Runner):
         solver=None,
         tee=True,
         solver_options: dict | None = None,
-        steps: Sequence[str] = None,
+        steps: Sequence[str] | None = None,
+        allow_user_steps: bool = False,
         **target_kw,
     ):
+        """Constructor
+
+        Args:
+            solver: Pyomo solver to use, or string name of solver
+            tee: If True, echo solver output to stdout
+            solver_options: Options to pass to the solver
+            steps: List of step names to run. If None (the default), use `STEPS`. If empty,
+                   then dynamically set the list of steps as they are added.
+            target_kw: Keyword arguments to set the report target (e.g., module, filename, filedir, hash)
+        """
         if steps is None:
             steps = self.STEPS
-        self.build_step = steps[0]
+        self.build_step = steps[0] if steps else None
         self._solver, self._tee = solver, tee
         self._solver_options = solver_options or {}
         self._ann = {}
@@ -189,6 +200,13 @@ class BaseFlowsheetRunner(Runner):
         if so, creates an empty Pyomo ConcreteModel to use as
         the base model for the flowsheet.
         """
+        if self.build_step is None:
+            if self._step_names:
+                self.build_step = self._step_names[0]
+            else:
+                raise ValueError(
+                    "Cannot run steps when no steps are defined and no build_step is set."
+                )
         self._set_solver()
         from_step_name = self.normalize_name(first)
         if (

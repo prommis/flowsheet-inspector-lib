@@ -136,7 +136,7 @@ def build_model(ctx: Context):
 # We now need to add the property packages to the flowsheet. Unlike Module 1, where we only had a thermo property package, for this flowsheet we will also need to add a reaction property package.
 
 
-@FS.substep("build", "add_props")
+@FS.label("build", "add_props")
 def add_property_packages(m):
     m.fs.thermo_params = thermo_props.HDAParameterBlock()
     m.fs.reaction_params = reaction_props.HDAReactionParameterBlock(
@@ -144,7 +144,7 @@ def add_property_packages(m):
     )
 
 
-@FS.substep("build", "add_units")
+@FS.label("build", "add_units")
 def add_units(m):
     """Add the unit models we have imported to the flowsheet.
 
@@ -196,7 +196,7 @@ def add_units(m):
     )
 
 
-@FS.substep("build", "create_arcs")
+@FS.label("build", "create_arcs")
 def connect_units(m):
     """Connect Unit Models using Arcs"""
     m.fs.s03 = Arc(source=m.fs.M101.outlet, destination=m.fs.H101.inlet)
@@ -210,7 +210,7 @@ def connect_units(m):
     TransformationFactory("network.expand_arcs").apply_to(m)
 
 
-@FS.substep("build", "add_expressions")
+@FS.label("build", "add_expressions")
 def add_expr(m):
     """Add expressions to compute purity and operating costs"""
 

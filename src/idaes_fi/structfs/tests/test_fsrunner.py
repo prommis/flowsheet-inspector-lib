@@ -35,6 +35,7 @@ from ..common import ActionNames, Steps
 
 from .flash_flowsheet import FS as flash_fs
 import idaes_fi.structfs as structfs
+from idaes_fi.structfs.common import Steps
 from pyomo.environ import assert_optimal_termination
 
 
@@ -561,7 +562,7 @@ def test_fsrunner_main_db(args, opts, mischief, ok, tmp_path, capsys):
     if mischief == "chmod":
         db_file.open("w")  # create file
         os.chmod(db_file, 0o000)  # make it unwritable
-        expect_out, expect_err = "unable to open database file", None
+        expect_out, expect_err = "database", None
     elif mischief == "bad_table":
         sdb = sqlite3.connect(db_file)
         sdb.execute("CREATE TABLE reports (foo varchar);")
@@ -768,3 +769,109 @@ def test_step_status_records_solve_ok(tmp_path, optimal):
     # solve step: process ok either way, solve_ok tracks solver termination
     assert by_name["solve_initial"][1] == 0
     assert by_name["solve_initial"][2] == (1 if optimal else 0)
+
+
+@pytest.mark.unit
+def test_step_order_user():
+    rn = FlowsheetRunner(steps=("a", "b", "c"))
+    calls = []
+
+    @rn.step("a")
+    def step_a(ctx):
+        calls.append("a")
+
+    @rn.step("b")
+    def step_b(ctx):
+        calls.append("b")
+
+    @rn.step("c")
+    def step_c(ctx):
+        calls.append("c")
+
+    rn.run_steps(save_report=False)
+    assert calls == ["a", "b", "c"]
+
+
+@pytest.mark.unit
+def test_step_order_default():
+    rn = FlowsheetRunner()
+    calls = []
+
+    @rn.step(Steps.initialize)
+    def step_b(ctx):
+        calls.append("b")
+
+    @rn.step(Steps.solve_initial)
+    def step_c(ctx):
+        calls.append("c")
+
+    @rn.step(Steps.build)
+    def step_a(ctx):
+        calls.append("a")
+
+    rn.run_steps(save_report=False)
+    assert calls == ["a", "b", "c"]
+
+
+@pytest.mark.unit
+def test_step_order_dynamic():
+    rn = FlowsheetRunner(steps=())
+    calls = []
+
+    @rn.step(Steps.initialize)
+    def step_b(ctx):
+        calls.append("b")
+
+    @rn.step(Steps.solve_initial)
+    def step_c(ctx):
+        calls.append("c")
+
+    @rn.step(Steps.build)
+    def step_a(ctx):
+        calls.append("a")
+
+    rn.run_steps(save_report=False)
+    assert calls == ["b", "c", "a"]  # dynamic order: as registered, not default
+
+
+@pytest.mark.unit
+def test_step_order_user_extra():
+    rn = FlowsheetRunner(steps=("a", "b"))
+    calls = []
+
+    @rn.step("a")
+    def step_a(ctx):
+        calls.append("a")
+
+    @rn.step("b")
+    def step_b(ctx):
+        calls.append("b")
+
+    with pytest.raises(KeyError):
+
+        @rn.step("c")
+        def step_c(ctx):
+            calls.append("c")
+
+
+@pytest.mark.unit
+def test_step_order_default_extra():
+    rn = FlowsheetRunner()
+    calls = []
+
+    @rn.step(Steps.build)
+    def step_a(ctx):
+        calls.append("a")
+
+    @rn.step(Steps.solve_optimization)
+    def step_b(ctx):
+        calls.append("b")
+
+    with pytest.raises(KeyError):
+
+        @rn.step("new_step")
+        def step_c(ctx):
+            calls.append("c")
+
+    rn.run_steps(save_report=False)
+    assert calls == ["a", "b"]  # only the registered steps run
