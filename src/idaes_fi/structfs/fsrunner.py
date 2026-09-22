@@ -54,6 +54,7 @@ from .common import (
     Steps,
 )
 from .reportdb import DBError
+from . import check_db_version
 from .. import gitutil
 
 _log = logging.getLogger(__name__)
@@ -513,9 +514,12 @@ def _find_wrapped_main(a_module) -> FunctionType | None:
 
 def main(args=None):
     """Run a flowsheet from the command-line."""
+    # Only compute the path for the help text. Do not open the database here.
+    # Opening it writes the current schema version into an old file before
+    # the version check below can see it.
     try:
-        default_report_file = Runner.get_default_report_db().filename
-    except ValueError:
+        default_report_file = str(check_db_version.default_db_path())
+    except Exception:  # noqa: BLE001 help text only
         default_report_file = "?unknown?"
     ap = argparse.ArgumentParser(description=main.__doc__)
     ap.add_argument("name", help="Flowsheet file name or module name")
@@ -587,6 +591,12 @@ def main(args=None):
         log.info(f"Writing report to user-specified file: {args.db}")
     else:
         log.debug(f"Writing report to default file: {default_report_file}")
+
+    # Check the database version before importing the flowsheet, because the
+    # import opens the database and writes the current version into it.
+    # Exit 3 is the same code as the other database errors below.
+    if not args.skip_db_test and check_db_version.refuse_if_db_outdated(args.db):
+        return 3
 
     try:
         fs = run_flowsheet(
