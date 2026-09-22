@@ -57,8 +57,8 @@ fi-copy = "idaes_fi.scripts.copy_template:main"
 fi-run = "idaes_fi.structfs.fsrunner:main"
 fi-steps = "idaes_fi.structfs.common:main"
 fi-db = "idaes_fi.structfs.tool.db_tools:main"
-check-db-version = "idaes_fi.structfs.check_db_version:main"
-db-migration = "idaes_fi.structfs.db_migration:main"
+fi-check-db-version = "idaes_fi.structfs.check_db_version:main"
+fi-db-migration = "idaes_fi.structfs.db_migration:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
