@@ -568,7 +568,9 @@ def test_fsrunner_main_db(args, opts, mischief, ok, tmp_path, capsys):
         sdb = sqlite3.connect(db_file)
         sdb.execute("CREATE TABLE reports (foo varchar);")
         sdb.commit()
-        expect_out, expect_err = "no column", None
+        # a reports table without a version table means a database from before
+        # schema versioning, so fi-run refuses it up front and asks for a migration
+        expect_out, expect_err = None, "fi-db-migration"
     elif mischief == "no_table":
         # create empty database
         sdb = sqlite3.connect(db_file)
@@ -586,18 +588,12 @@ def test_fsrunner_main_db(args, opts, mischief, ok, tmp_path, capsys):
 
 
 def test_fsrunner_main_no_default_report_db(monkeypatch, capsys):
-    class ValueErrorFilename:
-        @property
-        def filename(self):
-            raise ValueError()
+    from .. import check_db_version
 
-    class FakeRunner:
+    def no_default_path():
+        raise ValueError()
 
-        @classmethod
-        def nonexist_report_db(cls, create=True):
-            return ValueErrorFilename()
-
-    monkeypatch.setattr(Runner, "get_default_report_db", FakeRunner.nonexist_report_db)
+    monkeypatch.setattr(check_db_version, "default_db_path", no_default_path)
 
     cmd = ["-h"]
     try:
