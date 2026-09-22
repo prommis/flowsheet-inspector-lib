@@ -18,7 +18,7 @@
 
 import logging
 
-__all__ = ["FlowsheetRunner", "Runner", "fi_main", "get_report_db"]
+__all__ = ["FlowsheetRunner", "Runner", "fi_main", "get_report_db", "Steps"]
 
 _log = logging.getLogger(__name__)
 
@@ -36,6 +36,11 @@ def __getattr__(name):
         from .runner import Runner
 
         return Runner
+
+    if name == "Steps":
+        from .common import Steps
+
+        return Steps
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
