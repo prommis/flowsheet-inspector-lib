@@ -31,6 +31,8 @@ import os
 import sys
 import traceback
 
+from .check_db_version import refuse_if_db_outdated
+
 DEFAULT_SOLVER_NAME = "ipopt"
 
 #: Special key used to embed a flowsheet runner instance in a result dict
@@ -256,6 +258,14 @@ def main(*cmdline):
         args = parser.parse_args(cmdline)
     else:
         args = parser.parse_args()
+
+    # If a flowsheet was given, check the report database version first and
+    # exit 3 if it is old. This has to happen before the flowsheet is
+    # imported, because importing it opens the database and writes the
+    # current version into an old one. The check prints its JSON on stdout
+    # so the UI can show its "Upgrade FI DB" button.
+    if args.fs is not None and refuse_if_db_outdated():
+        return 3
 
     steps_list = None
     if args.fs is None:
