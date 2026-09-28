@@ -101,6 +101,8 @@ class CaptureSolverOutput(SolverActionBase):
             kwargs: Arguments passed through to superclass
         """
         super().__init__(runner, **kwargs)
+
+    def before_run(self):
         self._logs = {}
         self._solver_out = None
         self._save_stdout = None
@@ -113,6 +115,9 @@ class CaptureSolverOutput(SolverActionBase):
 
     def after_step(self, step_name: str):
         """Action performed after the step."""
+        self._restore_stdout(step_name)
+
+    def _restore_stdout(self, step_name: str):
         if self._solver_out is not None:
             self._logs[step_name] = self._solver_out.getvalue()
             self._solver_out = None
@@ -123,24 +128,14 @@ class CaptureSolverOutput(SolverActionBase):
             self._save_stdout = None
 
     def step_failed(self, step_name: str, err: Exception):
-        """Restore stdout and print any captured solver output when a step fails.
-
-        Only restore/flush when a capture is actually active (i.e. a solve step
-        is currently redirecting stdout). Gate on `_solver_out`, not
-        `_save_stdout`: a non-solve step can fail after a solve step has already
-        run, at which point `_solver_out` is None and there is nothing to flush.
+        """Restore stdout and print the error when a step fails.
 
         Args:
             step_name: Name of the step that failed.
             err: The exception raised by the step.
         """
-        if self._solver_out is not None:
-            sys.stdout = self._save_stdout
-            self._solver_out.flush()
-            # print stored stdout for debugging help
-            print(self._solver_out.getvalue())
-            self._solver_out = None
-            self._save_stdout = None
+        self._restore_stdout(step_name)
+        print(f"Solver error in step '{step_name}': {err}")
 
     def report(self) -> Report:
         """Machine-readable report with solver output.

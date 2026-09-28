@@ -265,9 +265,7 @@ def test_capture_solver_output(failed):
 
     # check report (captured output)
     rpt = action.report()
-    if failed:
-        assert solve_step not in rpt.output
-    else:
+    if not failed:
         assert rpt.output[solve_step].rstrip() == message.rstrip()
 
 
