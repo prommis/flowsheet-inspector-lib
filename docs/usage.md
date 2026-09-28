@@ -133,6 +133,43 @@ setup_optimization
 solve_optimization
 ```
 
+### fi-check-db-version and fi-db-migration
+
+Every report database file records the version of its schema. By default
+the file is `~/.idaes/reportdb.sqlite`. When you install a newer version of
+this library whose schema does not fit your existing database, `fi-run` and
+`fi-steps` refuse to run until it is migrated. They exit with code 3, print
+the same JSON as `fi-check-db-version` to stdout and log an error that says
+which version the database has, which one is required and how to upgrade.
+Two commands handle this. They are meant to be driven by other programs
+such as the Flowsheet Inspector UI, so each prints a single line of JSON.
+
+`fi-check-db-version` compares the version in the file with the version this
+library writes. It changes nothing. A database from before schema
+versioning is reported as 0.0:
+
+```{code} shell
+$ fi-check-db-version
+{"is_db_version_low": true, "client_db_version": 1.1, "flowsheet_inspector_lib_db_version": 2.0}
+```
+
+`fi-db-migration` runs the same check and migrates the file only if the
+library version is higher than the version in the file. It builds a new
+database with the current schema in a temporary file and copies every row
+of the report tables into it. Row ids are preserved. It keeps a backup of the old
+file next to it as `reportdb.sqlite.bak-v<version>-<timestamp>`, unless
+you pass `--no-backup`, and then replaces the old file in one step. Running
+it on a database that is already up to date does nothing.
+
+```{code} shell
+$ fi-db-migration
+{"is_db_version_low": true, "client_db_version": 1.1, "flowsheet_inspector_lib_db_version": 2.0, "migrated": true, "backup_file": "/home/dang/.idaes/reportdb.sqlite.bak-v1.1-20260917T113417", "rows_migrated": 42}
+$ fi-db-migration
+{"is_db_version_low": false, "client_db_version": 2.0, "flowsheet_inspector_lib_db_version": 2.0, "migrated": false, "backup_file": null, "rows_migrated": 0}
+```
+
+Both accept `--db PATH` to work on a file other than the default one.
+
 ## Python API in a script
 
 There are two basic ways to run structure flowsheets in a script.
