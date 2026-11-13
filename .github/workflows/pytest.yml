@@ -72,8 +72,5 @@ jobs:
 
       - name: Run pytest with coverage
         run: >
-          python -m pytest src
-          --cov=idaes_fi
-          --cov-report=term-missing
-          --cov-report=xml
-          --cov-fail-under=85
+          python -m pytest --cov-config=pyproject.toml --cov=idaes_fi
+  

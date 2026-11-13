@@ -53,10 +53,7 @@ dev = [
 package-dir = {"" = "src"}
 
 [project.scripts]
-fi-copy = "idaes_fi.scripts.copy_template:main"
-fi-run = "idaes_fi.structfs.fsrunner:main"
-fi-steps = "idaes_fi.structfs.common:main"
-fi-db = "idaes_fi.structfs.tool.db_tools:main"
+ifi = "idaes_fi.commands:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -80,3 +77,34 @@ mypy_path = "src"
 strict = true
 warn_unused_configs = true
 show_error_codes = true
+
+# ----
+# Code coverage
+# ----
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "test/*",
+    "*/test/*",
+]
+source_pkgs = ["idaes_fi"]
+
+[tool.coverage.report]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "test/*",
+    "*/test/*",
+    "copy_template.py",
+]
+fail_under = 85
+show_missing = true
+
+[tool.coverage.html]
+directory = "coverage_html"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+

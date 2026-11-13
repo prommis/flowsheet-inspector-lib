@@ -7,9 +7,8 @@ project:
     - name: PrOMMiS contributors
   toc:
     - file: index.md
-    - file: usage.md
-    - file: usage_nb.ipynb
     - file: api.md
+    - file: commands.md
   github: prommis/flowsheet-inspector-lib
 
 site:

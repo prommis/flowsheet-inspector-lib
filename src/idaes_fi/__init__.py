@@ -17,6 +17,8 @@
 #################################################################################
 """Top-level package for idaes-fi."""
 
-__all__ = ["__version__"]
+__all__ = ["__version__", "FlowsheetRunner", "Steps"]
 
 __version__ = "0.1.0"
+
+from .api import FlowsheetRunner, Steps
