@@ -1,0 +1,17 @@
+/* Definition lists used for argument lists */
+dl.args {
+    padding: 0;
+    margin: -10px 0 0 10px;
+  }
+dl.args dt {
+    float: left;
+    clear: left;
+    width: 130px;
+    text-align: right;
+    color: var(--pst-color-inline-code);
+    font-weight: normal;
+}
+dl.args dd {
+    margin-left: 150px !important; 
+    padding: 0 0 0 0;
+}

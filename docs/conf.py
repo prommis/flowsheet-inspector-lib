@@ -10,11 +10,6 @@ import os
 import sys
 import sphinx_book_theme as theme
 
-# For importing from idaes.<modules..>
-sys.path.insert(0, os.path.abspath(".."))
-sys.path.insert(0, os.path.abspath("."))
-
-
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -40,33 +35,30 @@ extensions = [
     "nbsphinx",
     # MystMD extensions
     "myst_parser",
-    "autodoc2",
+    #    "autodoc2",
 ]
 
 # Myst autodoc2 (experimental)
 # note: putting tests in 'exclude_dirs' avoids a WARNING about some duplicated
 #       objects in the hda_*.py files.
-autodoc2_packages = [{"path": "../src/idaes_fi", "exclude_dirs": ["tests"]}]
-autodoc2_output_dir = "apidoc/"
-autodoc2_render_plugin = "myst"
+# autodoc2_packages = [{"path": "../src/idaes_fi", "exclude_dirs": ["tests"]}]
+# autodoc2_output_dir = "apidoc/"
+# autodoc2_render_plugin = "myst"
 # These should be listed from most to least specific,
 # since the first match is used
-autodoc2_docstring_parser_regexes = [
-    # render docstrings in matching files as Markdown
-    ("../src/idaes_fi/.*", "myst"),
-]
-autodoc2_no_index = False
-autodoc2_index_template = None  # don't write index.rst
+# autodoc2_docstring_parser_regexes = [
+#    # render docstrings in matching files as Markdown
+#     ("../src/idaes_fi/.*", "myst"),
+# ]
+# autodoc2_no_index = False
+# autodoc2_index_template = None  # don't write index.rst
 # Put type hints in the description, not signature
-autodoc_typehints = "description"
+# autodoc_typehints = "description"
 
 # Nitpicky mode reports unresolved links for generated type annotations from
 # external libraries and a few legacy references in source docstrings. Keep
 # internal API references checked, but do not require external inventories.
-nitpick_ignore = [
-    ("py:class", "idaes_fi.structfs.runner.Actions"),
-    ("py:class", "structfs.fsrunner.Context"),
-]
+nitpick_ignore = []
 nitpick_ignore_regex = [
     (r"py:.*", r"abc\..*"),
     (r"py:.*", r"collections\.abc\..*"),
@@ -126,7 +118,6 @@ language = "en"
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = [
-    "apidoc/*tests*",
     "build",
     "build/**",
     "_build",
@@ -152,7 +143,7 @@ rst_epilog = f"""
 
 
 class RobustReplacements(dict):
-    """These replacements are needed because the Sphinx replacements are
+    """# These replacements are needed because the Sphinx replacements are
     not expanded within code blocks.
     """
 
@@ -194,8 +185,8 @@ nbsphinx_execute = "auto"
 html_theme = "sphinx_book_theme"
 html_theme_options = {
     "logo": {
-        "image_light": "images/logo-text-black.png",
-        "image_dark": "images/logo-text-white.png",
+        "image_light": "images/FI-light.png",
+        "image_dark": "images/FI-dark.png",
     },
     "repository_provider": "github",
     "repository_url": "https://github.com/prommis/flowsheet-inspector-lib",
@@ -206,8 +197,8 @@ html_theme_options = {
 }
 html_theme_path = [theme.get_html_theme_path()]
 html_title = "FI v{}".format(release)
-html_logo = "images/logo-symbol-fi_100x100.png"
-html_favicon = "images/logo-symbol-fi.ico"
+html_logo = "images/FI-light-small.png"
+html_favicon = "images/FI-light.ico"
 html_static_path = ["static", "images"]
 html_css_files = ["css/custom.css", "css/badge_only.css"]
 html_extra_path = ["static/extra/"]
