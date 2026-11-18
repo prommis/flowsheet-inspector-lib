@@ -14,10 +14,9 @@ Developed as part of the Process Optimization & Modeling for Minerals Sustainabi
 
 ## Usage
 
-To run a flowsheet that is wrapped from the shell
+See the :book:[online documentation](https://flowsheet-inspector-lib.readthedocs.io/en/latest/index.html):book:
 
-```bash
-```
+The documentation is built from the `docs` directory of this repository and hosted by [Read the Docs](https://about.readthedocs.com/).
 
 ## Development
 
